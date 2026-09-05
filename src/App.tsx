@@ -12,7 +12,7 @@ import { TemplateLibraryModal } from './components/TemplateLibraryModal';
 import { ProjectModal, ProjectSnapshot } from './components/ProjectModal';
 import { NewProjectModal } from './components/NewProjectModal';
 import { CustomCategoryModal } from './components/CustomCategoryModal';
-import { WaveformFontModal } from './components/WaveformFontModal';
+import { WaveformTypographyModal } from './components/WaveformTypographyModal';
 import { PROTOCOL_TEMPLATES } from './data/templates';
 import {
   SignalItem,
@@ -65,6 +65,7 @@ import {
   Folder,
   FolderPlus,
   GripVertical,
+  RotateCcw,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'wavedrom_builder_saved_state_v4';
@@ -905,6 +906,46 @@ export default function App() {
     }
   };
 
+  // Drag and Drop Signal Row Reordering (User Request: 支持拖拽信号框上移下移)
+  const [draggingSignalIndex, setDraggingSignalIndex] = useState<number | null>(null);
+  const [dragOverSignalIndex, setDragOverSignalIndex] = useState<number | null>(null);
+
+  const handleSignalDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('text/plain', String(index));
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingSignalIndex(index);
+  };
+
+  const handleSignalDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverSignalIndex !== index) {
+      setDragOverSignalIndex(index);
+    }
+  };
+
+  const handleSignalDragLeave = (e: React.DragEvent, index: number) => {
+    if (dragOverSignalIndex === index) {
+      setDragOverSignalIndex(null);
+    }
+  };
+
+  const handleSignalDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    const sourceIndexStr = e.dataTransfer.getData('text/plain');
+    const sourceIndex = sourceIndexStr !== '' ? parseInt(sourceIndexStr, 10) : draggingSignalIndex;
+    if (sourceIndex !== null && !isNaN(sourceIndex) && sourceIndex !== targetIndex) {
+      handleMoveSignal(sourceIndex, targetIndex);
+    }
+    setDraggingSignalIndex(null);
+    setDragOverSignalIndex(null);
+  };
+
+  const handleSignalDragEnd = () => {
+    setDraggingSignalIndex(null);
+    setDragOverSignalIndex(null);
+  };
+
   const handleDuplicateSignal = (index: number) => {
     recordUndoPoint();
     setSignals((prev) => {
@@ -1450,6 +1491,16 @@ export default function App() {
           setIsHelpAndGuideModalOpen(true);
         }}
         onResetToDefault={handleResetToDefault}
+        skin={config.skin || 'default'}
+        onSkinChange={(newSkin) => {
+          recordUndoPoint();
+          setConfig((prev) => ({ ...prev, skin: newSkin }));
+        }}
+        hscale={config.hscale || 1}
+        onHscaleChange={(newHscale) => {
+          recordUndoPoint();
+          setConfig((prev) => ({ ...prev, hscale: newHscale }));
+        }}
         totalCycles={totalCycles}
         onChangeTotalCycles={handleChangeTotalCycles}
         autoSaveStatus={autoSaveStatus}
@@ -1725,7 +1776,7 @@ export default function App() {
                     </div>
 
                     {showAddMenu && (
-                      <div className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-2 text-xs flex flex-col gap-1.5 animate-in fade-in zoom-in-95 duration-100">
+                      <div className="absolute left-0 top-full mt-1.5 z-50 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-2 text-xs flex flex-col gap-1.5 animate-in fade-in zoom-in-95 duration-100">
                         <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
                           <span className="font-bold text-slate-700 dark:text-slate-200">
                             {lang === 'zh' ? '选择信号添加方式' : 'Add Signal Option'}
@@ -2199,6 +2250,14 @@ export default function App() {
                       onHoverCycle={setHoveredCycle}
                       onLockCycle={setLockedCycle}
                       onAddPipelineTapSignal={() => handleAddPipelineTapSignal(sig.id)}
+                      draggable={true}
+                      isDragging={draggingSignalIndex === originalIndex}
+                      isDragOver={dragOverSignalIndex === originalIndex && draggingSignalIndex !== originalIndex}
+                      onDragStart={handleSignalDragStart}
+                      onDragOver={handleSignalDragOver}
+                      onDragLeave={handleSignalDragLeave}
+                      onDrop={handleSignalDrop}
+                      onDragEnd={handleSignalDragEnd}
                       onChange={(updated) => handleUpdateSignal(originalIndex, updated)}
                       onMoveUp={() => handleMoveSignal(originalIndex, originalIndex - 1)}
                       onMoveDown={() => handleMoveSignal(originalIndex, originalIndex + 1)}
@@ -2291,6 +2350,14 @@ export default function App() {
                           onHoverCycle={setHoveredCycle}
                           onLockCycle={setLockedCycle}
                           onAddPipelineTapSignal={() => handleAddPipelineTapSignal(sig.id)}
+                          draggable={true}
+                          isDragging={draggingSignalIndex === originalIndex}
+                          isDragOver={dragOverSignalIndex === originalIndex && draggingSignalIndex !== originalIndex}
+                          onDragStart={handleSignalDragStart}
+                          onDragOver={handleSignalDragOver}
+                          onDragLeave={handleSignalDragLeave}
+                          onDrop={handleSignalDrop}
+                          onDragEnd={handleSignalDragEnd}
                           onChange={(updated) => handleUpdateSignal(originalIndex, updated)}
                           onMoveUp={() => handleMoveSignal(originalIndex, originalIndex - 1)}
                           onMoveDown={() => handleMoveSignal(originalIndex, originalIndex + 1)}
@@ -2468,12 +2535,16 @@ export default function App() {
         }}
       />
 
-      {/* Waveform Typography Configuration Modal (User Request: 支持波形图内的字体自由配置) */}
-      <WaveformFontModal
+      {/* Waveform Typography & Title/Footer Notes Modal (User Request: 把右侧波形里的标尺里的图表标题与页脚备注拿出来和字体配置合并成一个工具按钮并重新命名) */}
+      <WaveformTypographyModal
         isOpen={isWaveformFontModalOpen}
         onClose={() => setIsWaveformFontModalOpen(false)}
-        config={config.fontConfig || DEFAULT_FONT_CONFIG}
-        onChange={(newFontConfig) => {
+        head={head}
+        foot={foot}
+        onHeadChange={setHead}
+        onFootChange={setFoot}
+        fontConfig={config.fontConfig || DEFAULT_FONT_CONFIG}
+        onFontConfigChange={(newFontConfig) => {
           setConfig((prev) => ({
             ...prev,
             fontConfig: newFontConfig,
@@ -2678,6 +2749,83 @@ export default function App() {
                 className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-bold cursor-pointer transition-colors"
               >
                 确认创建并分组
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Reset Waveform Confirmation Modal (User Request: 修复顶部工具栏重置逻辑，点击了没反应) */}
+      {isResetConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-100">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-5 flex flex-col gap-4 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  {lang === 'zh' ? '确认重置波形？' : 'Reset Waveform?'}
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  {lang === 'zh'
+                    ? '重置将清空当前所有信号与配置，并恢复为默认的基础 SPI 模板。未保存的修改将会丢失。'
+                    : 'This will reset all signals and configuration to the default SPI template. Unsaved changes will be lost.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsResetConfirmOpen(false)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer font-medium"
+              >
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={executeResetToDefault}
+                className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer transition-colors shadow-2xs"
+              >
+                {lang === 'zh' ? '确认重置' : 'Reset Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Project Confirmation Modal */}
+      {isNewProjectConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-100">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-5 flex flex-col gap-4 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  {lang === 'zh' ? '确认新建工程？' : 'Create New Project?'}
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  {lang === 'zh'
+                    ? '新建工程将初始化一个全新的波形画板。请确保当前工程已保存或导出。'
+                    : 'Creating a new project will initialize a blank waveform canvas. Make sure current work is saved.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsNewProjectConfirmOpen(false)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer font-medium"
+              >
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={executeNewProject}
+                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer transition-colors shadow-2xs"
+              >
+                {lang === 'zh' ? '确认新建' : 'Create New'}
               </button>
             </div>
           </div>

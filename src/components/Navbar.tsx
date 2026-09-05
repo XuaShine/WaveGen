@@ -17,8 +17,12 @@ import {
   Check,
   ShieldCheck,
   Languages,
+  Palette,
+  ZoomIn,
+  ChevronDown,
 } from 'lucide-react';
-import { ViewLayout } from '../types';
+import { ViewLayout, WaveSkin } from '../types';
+import { AVAILABLE_SKINS, getSkinInfo } from '../lib/skins';
 import { useI18n } from '../lib/i18n';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -35,6 +39,10 @@ interface NavbarProps {
   onOpenHelpModal: () => void;
   onOpenTextGuide?: () => void;
   onResetToDefault: () => void;
+  skin?: WaveSkin;
+  onSkinChange?: (skin: WaveSkin) => void;
+  hscale?: number;
+  onHscaleChange?: (hscale: number) => void;
   autoSaveStatus?: 'saved' | 'saving';
   canUndo?: boolean;
   canRedo?: boolean;
@@ -56,6 +64,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenHelpModal,
   onOpenTextGuide,
   onResetToDefault,
+  skin = 'default',
+  onSkinChange,
+  hscale = 1,
+  onHscaleChange,
   autoSaveStatus = 'saved',
   canUndo = false,
   canRedo = false,
@@ -66,6 +78,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [showThemeDropdown, setShowThemeDropdown] = useState<boolean>(false);
   const themeDropdownRef = useRef<HTMLDivElement>(null);
+  const [showSkinDropdown, setShowSkinDropdown] = useState<boolean>(false);
+  const skinDropdownRef = useRef<HTMLDivElement>(null);
 
   // Inline project name editing state
   const [isEditingName, setIsEditingName] = useState<boolean>(false);
@@ -103,12 +117,15 @@ export const Navbar: React.FC<NavbarProps> = ({
       if (themeDropdownRef.current && !themeDropdownRef.current.contains(e.target as Node)) {
         setShowThemeDropdown(false);
       }
+      if (skinDropdownRef.current && !skinDropdownRef.current.contains(e.target as Node)) {
+        setShowSkinDropdown(false);
+      }
     };
-    if (showThemeDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showThemeDropdown]);
+  }, []);
+
+  const currentSkinInfo = getSkinInfo(skin);
 
   return (
     <header className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs">
@@ -229,6 +246,97 @@ export const Navbar: React.FC<NavbarProps> = ({
           <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
           <span>{autoSaveStatus === 'saving' ? (language === 'zh' ? '保存中...' : 'Saving...') : (language === 'zh' ? '自动保存' : 'Auto Saved')}</span>
         </div>
+
+        {/* Waveform Skin Selector */}
+        {onSkinChange && (
+          <div className="relative" ref={skinDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowSkinDropdown(!showSkinDropdown)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer text-xs font-medium shadow-2xs"
+              title={language === 'zh' ? '波形视觉皮肤风格' : 'Waveform visual skin'}
+            >
+              <Palette className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              <span className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-slate-600 shrink-0" style={{ backgroundColor: currentSkinInfo.bgColor }} />
+              <span className="hidden xl:inline">
+                {language === 'zh' ? currentSkinInfo.name : currentSkinInfo.enName}
+              </span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {showSkinDropdown && (
+              <div className="absolute right-0 mt-1.5 w-60 py-1.5 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 text-xs">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700/60 mb-1">
+                  {language === 'zh' ? '选择波形皮肤风格' : 'Waveform Skins'}
+                </div>
+                <div className="max-h-64 overflow-y-auto space-y-0.5 px-1">
+                  {AVAILABLE_SKINS.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        onSkinChange(s.id);
+                        setShowSkinDropdown(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
+                        skin === s.id
+                          ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-600 shrink-0 shadow-2xs"
+                          style={{ backgroundColor: s.bgColor }}
+                        />
+                        <span className="truncate">{language === 'zh' ? s.name : s.enName}</span>
+                      </div>
+                      {skin === s.id && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Canvas Horizontal Zoom (Hscale) */}
+        {onHscaleChange && (
+          <div
+            className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 text-xs shadow-2xs"
+            title={language === 'zh' ? '画板每拍宽度缩放 (hscale: 1x, 2x, 3x...)' : 'Canvas horizontal scale per cycle (hscale)'}
+          >
+            <span className="px-1 text-[11px] font-bold text-slate-400 hidden xl:inline">
+              {language === 'zh' ? '缩放' : 'Scale'}
+            </span>
+            <button
+              type="button"
+              onClick={() => onHscaleChange(Math.max(1, hscale - 1))}
+              disabled={hscale <= 1}
+              className="w-5 h-5 rounded flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-25 cursor-pointer font-bold"
+              title="缩小每拍宽度"
+            >
+              -
+            </button>
+            <button
+              type="button"
+              onClick={() => onHscaleChange(hscale >= 4 ? 1 : hscale + 1)}
+              className="px-1.5 font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+              title="点击在 1x, 2x, 3x, 4x 间轮换"
+            >
+              {hscale}x
+            </button>
+            <button
+              type="button"
+              onClick={() => onHscaleChange(Math.min(6, hscale + 1))}
+              disabled={hscale >= 6}
+              className="w-5 h-5 rounded flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-25 cursor-pointer font-bold"
+              title="放大每拍宽度"
+            >
+              +
+            </button>
+          </div>
+        )}
 
         {/* Layout Mode Toggle (Split Screen vs Stacked) */}
         <button

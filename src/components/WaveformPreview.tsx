@@ -507,233 +507,57 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
         heightMode === 'fill' ? 'h-full flex-1 min-h-0' : ''
       } ${className}`}
     >
-      {/* Top Preview Toolbar - Guaranteed All-Visible Adaptive Layout */}
-      <div
-        className={`flex flex-wrap items-center ${
-          layoutMode === 'stacked' ? 'justify-start' : 'justify-between'
-        } gap-y-1.5 gap-x-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs shrink-0`}
-      >
-        {/* Left: Waveform Title & Skin & Ruler & Font */}
-        <div className="flex flex-wrap items-center gap-1.5">
+      {/* Top Preview Toolbar: Row 1 (Title, Period Ruler, Text & Typography, Guideline, and Layout Switcher) */}
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-1.5 shrink-0">
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="text-xs font-bold tracking-tight text-slate-800 dark:text-slate-200 shrink-0">
             {t('waveform_title')}
           </span>
 
-          {/* Interactive Skin Selector Dropdown */}
-          <div className="relative shrink-0">
-            <button
-              ref={skinButtonRef}
-              type="button"
-              onClick={handleToggleSkinMenu}
-              className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-md font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer shadow-2xs"
-              title={lang === 'zh' ? '切换波形皮肤风格' : 'Switch waveform theme skin'}
-            >
-              <span
-                className="w-2 h-2 rounded-full border border-slate-400/40 shrink-0"
-                style={{ backgroundColor: currentSkinInfo.bgColor }}
-              />
-              <span className="text-[11px] font-medium">{lang === 'en' && currentSkinInfo.enName ? currentSkinInfo.enName : currentSkinInfo.name}</span>
-              <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
-            </button>
-
-            {showSkinMenu &&
-              typeof document !== 'undefined' &&
-              createPortal(
-                <>
-                  <div
-                    className="fixed inset-0 z-[99998] bg-black/10"
-                    onClick={() => setShowSkinMenu(false)}
-                  />
-                  <div
-                    style={{
-                      position: 'fixed',
-                      top: `${skinMenuPos.top}px`,
-                      left: `${skinMenuPos.left}px`,
-                      zIndex: 99999,
-                    }}
-                    className="w-80 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-300 dark:border-slate-700 py-2 text-xs flex flex-col max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-100"
-                  >
-                    <div className="px-3 py-1.5 font-bold text-[11px] text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Palette className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                        <span>{lang === 'zh' ? '选择波形皮肤风格 (9款)' : 'Waveform Themes (9 Skins)'}</span>
-                      </span>
-                    </div>
-
-                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                      {/* Light group */}
-                      <div className="py-1">
-                        <div className="px-3 py-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          {lang === 'zh' ? '浅色经典 & 论文出版' : 'Classic Light & Publication'}
-                        </div>
-                        {AVAILABLE_SKINS.filter((s) => s.category === 'light').map((s) => {
-                          const isSelected = skin === s.id;
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => {
-                                if (onSkinChange) onSkinChange(s.id);
-                                setShowSkinMenu(false);
-                              }}
-                              className={`w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer ${
-                                isSelected
-                                  ? 'bg-purple-50 dark:bg-purple-950/70 border-l-4 border-purple-600 text-purple-900 dark:text-purple-100 font-bold'
-                                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
-                              }`}
-                            >
-                              <span
-                                className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 shrink-0 mt-0.5 shadow-2xs"
-                                style={{ backgroundColor: s.bgColor }}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <span className="truncate text-xs">{lang === 'en' && s.enName ? s.enName : s.name}</span>
-                                  {s.tag && (
-                                    <span className="text-[9px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-medium">
-                                      {lang === 'en' && s.enTag ? s.enTag : s.tag}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                  {lang === 'en' && s.enDesc ? s.enDesc : s.desc}
-                                </div>
-                              </div>
-                              {isSelected && (
-                                <Check className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Dark group */}
-                      <div className="py-1">
-                        <div className="px-3 py-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          {lang === 'zh' ? '科技暗色 & 赛博极客' : 'Tech Dark & Cyber'}
-                        </div>
-                        {AVAILABLE_SKINS.filter((s) => s.category === 'dark').map((s) => {
-                          const isSelected = skin === s.id;
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => {
-                                if (onSkinChange) onSkinChange(s.id);
-                                setShowSkinMenu(false);
-                              }}
-                              className={`w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer ${
-                                isSelected
-                                  ? 'bg-purple-50 dark:bg-purple-950/70 border-l-4 border-purple-600 text-purple-900 dark:text-purple-100 font-bold'
-                                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
-                              }`}
-                            >
-                              <span
-                                className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 shrink-0 mt-0.5 shadow-2xs"
-                                style={{ backgroundColor: s.bgColor }}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <span className="truncate text-xs">{lang === 'en' && s.enName ? s.enName : s.name}</span>
-                                  {s.tag && (
-                                    <span className="text-[9px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-medium">
-                                      {lang === 'en' && s.enTag ? s.enTag : s.tag}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                  {lang === 'en' && s.enDesc ? s.enDesc : s.desc}
-                                </div>
-                              </div>
-                              {isSelected && (
-                                <Check className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Compact group */}
-                      <div className="py-1">
-                        <div className="px-3 py-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          {lang === 'zh' ? '紧凑高密度排版' : 'Compact High Density'}
-                        </div>
-                        {AVAILABLE_SKINS.filter((s) => s.category === 'compact').map((s) => {
-                          const isSelected = skin === s.id;
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => {
-                                if (onSkinChange) onSkinChange(s.id);
-                                setShowSkinMenu(false);
-                              }}
-                              className={`w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer ${
-                                isSelected
-                                  ? 'bg-purple-50 dark:bg-purple-950/70 border-l-4 border-purple-600 text-purple-900 dark:text-purple-100 font-bold'
-                                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
-                              }`}
-                            >
-                              <span
-                                className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 shrink-0 mt-0.5 shadow-2xs"
-                                style={{ backgroundColor: s.bgColor }}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <span className="truncate text-xs">{lang === 'en' && s.enName ? s.enName : s.name}</span>
-                                  {s.tag && (
-                                    <span className="text-[9px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-medium">
-                                      {lang === 'en' && s.enTag ? s.enTag : s.tag}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                  {lang === 'en' && s.enDesc ? s.enDesc : s.desc}
-                                </div>
-                              </div>
-                              {isSelected && (
-                                <Check className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </>,
-                document.body
-              )}
-          </div>
-
-          {isPinned && (
-            <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 px-1 py-0.2 rounded font-medium shrink-0">
-              {t('sticky_matrix')}
-            </span>
-          )}
-
-          {/* Quick Period Ruler Modal */}
+          {/* Period Ruler Modal Button */}
           {onOpenHeadFootConfig && (
             <button
               onClick={onOpenHeadFootConfig}
               className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors shadow-2xs cursor-pointer shrink-0"
-              title={lang === 'zh' ? '周期标尺与表头表尾设置' : 'Ruler & Diagram Header/Footer'}
+              title={lang === 'zh' ? '时基规划与周期标尺配置' : 'Timing Ruler & Timebase'}
             >
               <SlidersHorizontal className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-              <span className="text-[11px]">{t('waveform_ruler')}</span>
+              <span className="text-[11px]">{lang === 'zh' ? '周期标尺' : 'Timing Ruler'}</span>
             </button>
           )}
 
-          {/* Quick Waveform Font & Typography Modal */}
+          {/* Consolidated Text & Typography Modal Button */}
           {onOpenFontModal && (
             <button
               onClick={onOpenFontModal}
               className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md border border-purple-200 dark:border-purple-800 bg-purple-50/70 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors shadow-2xs cursor-pointer shrink-0"
-              title={lang === 'zh' ? '波形字体配置：支持标题、信号、总线、页脚独立字体' : 'Waveform typography settings'}
+              title={lang === 'zh' ? '图文排版与字体配置：标题、页脚说明、底部双沿刻度及全图字体' : 'Text, titles, foot notes & typography'}
             >
               <Type className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-              <span className="text-[11px]">{t('waveform_font')}</span>
+              <span className="text-[11px]">{lang === 'zh' ? '图文与字体' : 'Text & Typography'}</span>
             </button>
+          )}
+
+          {/* Waveform Skin Selector Button */}
+          {onSkinChange && (
+            <div className="relative">
+              <button
+                ref={skinButtonRef}
+                type="button"
+                onClick={handleToggleSkinMenu}
+                className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer shrink-0"
+                title={lang === 'zh' ? '波形视觉皮肤风格' : 'Waveform visual skin'}
+              >
+                <Palette className="w-3 h-3 text-indigo-500 shrink-0" />
+                <span
+                  className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-slate-600 shrink-0"
+                  style={{ backgroundColor: currentSkinInfo.bgColor }}
+                />
+                <span className="text-[11px] font-semibold">{lang === 'zh' ? currentSkinInfo.name : currentSkinInfo.enName}</span>
+                <ChevronDown className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+              </button>
+            </div>
           )}
 
           {/* Timing guideline toggle */}
@@ -751,55 +575,56 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
           </button>
         </div>
 
-        {/* Right / Secondary Tools: Layout Toggle, Split Ratio, Height Adjuster, Zoom, Auto-fit, Export, Code */}
-        <div className={`flex items-center gap-1 shrink-0 ${layoutMode === 'stacked' ? 'ml-0 pl-1.5 border-l border-slate-200 dark:border-slate-700' : 'ml-auto'} flex-wrap`}>
-          {/* Integrated Layout Switcher & Split Ratio Presets (User Request: 简化按钮加入波形预览里成为工具栏中的一个) */}
-          {onToggleLayoutMode && (
-            <div className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs text-[11px] font-semibold shrink-0">
-              <button
-                type="button"
-                onClick={onToggleLayoutMode}
-                className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded cursor-pointer transition-colors"
-                title={layoutMode === 'split' ? (lang === 'zh' ? '点击切为上下堆叠布局' : 'Switch to Stacked View') : (lang === 'zh' ? '点击切为左右分屏布局' : 'Switch to Split View')}
-              >
-                {layoutMode === 'split' ? (
-                  <>
-                    <Rows className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                    <span>{lang === 'zh' ? '上下视图' : 'Stacked'}</span>
-                  </>
-                ) : (
-                  <>
-                    <Columns className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                    <span>{lang === 'zh' ? '左右分屏' : 'Split'}</span>
-                  </>
-                )}
-              </button>
-
-              {layoutMode === 'split' && onSetSplitRatio && (
-                <div className="flex items-center border-l border-slate-200 dark:border-slate-700 pl-1 gap-0.5 font-mono text-[10px]">
-                  {[35, 50, 60, 70].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => onSetSplitRatio(preset)}
-                      className={`px-1 py-0.5 rounded transition-colors cursor-pointer ${
-                        splitRatio !== undefined && Math.round(splitRatio) === preset
-                          ? 'bg-blue-600 text-white font-bold'
-                          : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                      }`}
-                      title={lang === 'zh' ? `右侧波形占比 ${preset}%` : `Right pane ${preset}%`}
-                    >
-                      {preset}%
-                    </button>
-                  ))}
-                </div>
+        {/* Right of Row 1: Layout Mode Switcher & Split Ratio Presets (On the same line as 字体配置) */}
+        {onToggleLayoutMode && (
+          <div className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs text-[11px] font-semibold shrink-0">
+            <button
+              type="button"
+              onClick={onToggleLayoutMode}
+              className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded cursor-pointer transition-colors"
+              title={layoutMode === 'split' ? (lang === 'zh' ? '点击切为上下堆叠布局' : 'Switch to Stacked View') : (lang === 'zh' ? '点击切为左右分屏布局' : 'Switch to Split View')}
+            >
+              {layoutMode === 'split' ? (
+                <>
+                  <Rows className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                  <span>{lang === 'zh' ? '上下视图' : 'Stacked'}</span>
+                </>
+              ) : (
+                <>
+                  <Columns className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                  <span>{lang === 'zh' ? '左右分屏' : 'Split'}</span>
+                </>
               )}
-            </div>
-          )}
+            </button>
 
-          {/* Height Adjuster: [-] [ Height / Mode ] [+] */}
+            {layoutMode === 'split' && onSetSplitRatio && (
+              <div className="flex items-center border-l border-slate-200 dark:border-slate-700 pl-1 gap-0.5 font-mono text-[10px]">
+                {[35, 50, 60, 70].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => onSetSplitRatio(preset)}
+                    className={`px-1 py-0.5 rounded transition-colors cursor-pointer ${
+                      splitRatio !== undefined && Math.round(splitRatio) === preset
+                        ? 'bg-blue-600 text-white font-bold'
+                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                    title={lang === 'zh' ? `右侧波形占比 ${preset}%` : `Right pane ${preset}%`}
+                  >
+                    {preset}%
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Top Preview Toolbar: Row 2 (Height Controls, Pin, Auto-fit, Zoom, and Export Buttons) */}
+      <div className="flex items-center justify-between gap-2 px-3 py-1 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-100/70 dark:bg-slate-900/60 shrink-0 overflow-x-auto max-w-full">
+        {/* Left: Height controls */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs text-[11px] font-semibold overflow-hidden shrink-0">
-            {/* Step down button */}
             <button
               type="button"
               onClick={() => {
@@ -813,8 +638,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             >
               -
             </button>
-
-            {/* Height Display & Dropdown Menu Trigger */}
             <div className="relative">
               <button
                 type="button"
@@ -828,15 +651,13 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
                 </span>
                 <ChevronDown className="w-2.5 h-2.5 text-slate-400 shrink-0" />
               </button>
-
               {showSizeMenu && (
                 <>
                   <div
                     className="fixed inset-0 z-40"
                     onClick={() => setShowSizeMenu(false)}
                   />
-                  <div className="absolute top-full right-0 mt-1.5 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
-                    {/* Fill Bottom */}
+                  <div className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
                     <button
                       type="button"
                       onClick={() => {
@@ -856,7 +677,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
                       {heightMode === 'fill' && <Check className="w-3 h-3 text-blue-600" />}
                     </button>
 
-                    {/* Auto Content */}
                     <button
                       type="button"
                       onClick={() => {
@@ -878,7 +698,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
 
                     <div className="border-t border-slate-100 dark:border-slate-700 my-1" />
 
-                    {/* Custom input box */}
                     <div className="px-3 py-1 flex items-center gap-1.5">
                       <span className="text-[11px] text-slate-500">{lang === 'zh' ? '像素:' : 'Pixel:'}</span>
                       <input
@@ -928,8 +747,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
                 </>
               )}
             </div>
-
-            {/* Step up button */}
             <button
               type="button"
               onClick={() => {
@@ -954,20 +771,14 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
                 ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                 : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
             }`}
-            title={
-              heightMode === 'fill'
-                ? lang === 'zh'
-                  ? '已占满底部 (点击切回自适应)'
-                  : 'Filled to bottom (Click for auto)'
-                : lang === 'zh'
-                ? '一键占满右侧到底部'
-                : 'Fill height to bottom'
-            }
+            title={heightMode === 'fill' ? (lang === 'zh' ? '已占满底部' : 'Filled') : (lang === 'zh' ? '占满底部' : 'Fill height')}
           >
             <span>{t('height_fill')}</span>
           </button>
+        </div>
 
-          {/* Sticky Pin / Unpin Toggle */}
+        {/* Right: Actions, Zoom, Export buttons */}
+        <div className="flex items-center gap-1 shrink-0 ml-auto">
           {onTogglePin && (
             <button
               onClick={onTogglePin}
@@ -982,7 +793,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             </button>
           )}
 
-          {/* Auto Fit toggle */}
           <button
             type="button"
             onClick={() => {
@@ -1048,7 +858,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             </button>
           </div>
 
-          {/* Copy SVG */}
           <button
             onClick={handleCopySvg}
             className="p-1 rounded-md text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer shrink-0"
@@ -1057,7 +866,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             {copiedSvg ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
 
-          {/* Download SVG */}
           <button
             onClick={handleDownloadSvg}
             className="px-2 py-0.5 text-[11px] font-semibold rounded-md text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer shrink-0"
@@ -1066,7 +874,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             SVG
           </button>
 
-          {/* Download PNG */}
           <button
             onClick={handleDownloadPng}
             disabled={isExportingPng}
@@ -1384,6 +1191,54 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Skin selection floating portal menu */}
+      {showSkinMenu && onSkinChange && typeof document !== 'undefined' && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/10 backdrop-blur-2xs"
+            onClick={() => setShowSkinMenu(false)}
+          />
+          <div
+            style={{ top: `${skinMenuPos.top}px`, left: `${skinMenuPos.left}px` }}
+            className="fixed z-50 w-72 max-h-96 overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-2 animate-in fade-in zoom-in-95 duration-100"
+          >
+            <div className="px-2 py-1 mb-1 font-bold text-[11px] text-slate-400 uppercase tracking-wider">
+              {lang === 'zh' ? '选择波形皮肤风格' : 'Select Waveform Skin'}
+            </div>
+            <div className="space-y-1">
+              {AVAILABLE_SKINS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    onSkinChange(s.id);
+                    setShowSkinMenu(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors cursor-pointer text-xs ${
+                    skin === s.id
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-600 shrink-0 shadow-2xs"
+                      style={{ backgroundColor: s.bgColor }}
+                    />
+                    <div>
+                      <div className="font-medium truncate">{lang === 'zh' ? s.name : s.enName}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{s.desc}</div>
+                    </div>
+                  </div>
+                  {skin === s.id && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );

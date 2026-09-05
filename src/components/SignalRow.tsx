@@ -25,6 +25,7 @@ import {
   Settings2,
   Folder,
   Zap,
+  GripVertical,
 } from 'lucide-react';
 import {
   SignalItem,
@@ -81,6 +82,14 @@ interface SignalRowProps {
   onHoverCycle?: (cycle: number | null) => void;
   onLockCycle?: (cycle: number | null) => void;
   onAddPipelineTapSignal?: () => void;
+  draggable?: boolean;
+  isDragging?: boolean;
+  isDragOver?: boolean;
+  onDragStart?: (e: React.DragEvent, index: number) => void;
+  onDragOver?: (e: React.DragEvent, index: number) => void;
+  onDragLeave?: (e: React.DragEvent, index: number) => void;
+  onDrop?: (e: React.DragEvent, index: number) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }
 
 const CATEGORY_GROUPS: Array<{
@@ -128,6 +137,14 @@ export const SignalRow: React.FC<SignalRowProps> = ({
   onAddPipelineTapSignal,
   isCollapsed: isCollapsedProp,
   onToggleCollapse,
+  draggable = true,
+  isDragging = false,
+  isDragOver = false,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
 }) => {
   const { t, lang } = useI18n();
   const [internalCollapsed, setInternalCollapsed] = useState(isCollapsedProp ?? true);
@@ -137,6 +154,24 @@ export const SignalRow: React.FC<SignalRowProps> = ({
     const next = !isCollapsed;
     setInternalCollapsed(next);
     onToggleCollapse?.(next);
+  };
+
+  // User Request: 支持双击信号框空白处折叠或者展开
+  const handleHeaderDoubleClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'BUTTON' ||
+      target.tagName === 'SELECT' ||
+      target.closest('button') ||
+      target.closest('input') ||
+      target.closest('select') ||
+      target.closest('[role="button"]') ||
+      target.closest('a')
+    ) {
+      return;
+    }
+    toggleCollapse();
   };
 
   const [showSettings, setShowSettings] = useState(false);
@@ -427,16 +462,38 @@ export const SignalRow: React.FC<SignalRowProps> = ({
     <div
       id={`signal_row_${signal.id}`}
       data-signal-id={signal.id}
-      className={`scroll-mt-[380px] md:scroll-mt-[460px] rounded-xl border transition-all duration-200 ${
-        isFocused
+      draggable={draggable}
+      onDragStart={(e) => onDragStart && onDragStart(e, index)}
+      onDragOver={(e) => onDragOver && onDragOver(e, index)}
+      onDragLeave={(e) => onDragLeave && onDragLeave(e, index)}
+      onDrop={(e) => onDrop && onDrop(e, index)}
+      onDragEnd={(e) => onDragEnd && onDragEnd(e)}
+      className={`scroll-mt-[380px] md:scroll-mt-[460px] rounded-xl border transition-all duration-150 ${
+        isDragging
+          ? 'opacity-30 border-dashed border-blue-500 scale-[0.99] bg-blue-50/20'
+          : isDragOver
+          ? 'border-blue-500 ring-2 ring-blue-500/50 bg-blue-50/30 dark:bg-blue-950/40 shadow-md'
+          : isFocused
           ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-md bg-blue-50/10 dark:bg-blue-950/20'
           : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900 shadow-xs'
       }`}
     >
-      {/* Top Header of the Signal Row */}
-      <div className={`flex flex-wrap items-center justify-between gap-1.5 px-2.5 py-1 sm:py-1.5 bg-slate-50/70 dark:bg-slate-900/60 ${isCollapsed ? '' : 'border-b border-slate-100 dark:border-slate-800'}`}>
-        {/* Left Side: Collapse + Move Controls + Name + Clock Domain + Delay */}
+      {/* Top Header of the Signal Row (User Request: 支持双击信号框空白处折叠或者展开) */}
+      <div
+        onDoubleClick={handleHeaderDoubleClick}
+        title={lang === 'zh' ? '双击空白处折叠/展开信号' : 'Double click blank area to toggle fold/unfold'}
+        className={`flex flex-wrap items-center justify-between gap-1.5 px-2.5 py-1 sm:py-1.5 bg-slate-50/70 dark:bg-slate-900/60 select-none ${isCollapsed ? '' : 'border-b border-slate-100 dark:border-slate-800'}`}
+      >
+        {/* Left Side: Drag Handle + Collapse + Move Controls + Name + Clock Domain + Delay */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Drag Handle (User Request: 支持拖拽信号框上移下移) */}
+          <div
+            className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded transition-colors"
+            title={lang === 'zh' ? '按住拖拽上下移动信号位置' : 'Drag to move signal up or down'}
+          >
+            <GripVertical className="w-3.5 h-3.5" />
+          </div>
+
           {/* Collapse/Expand */}
           <button
             type="button"
