@@ -1,0 +1,6 @@
+{
+  "name": "WaveGen",
+  "description": "Professional timing diagram generator and waveform designer",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

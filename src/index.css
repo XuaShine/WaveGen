@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
+/* Remove spin buttons from number inputs across all browsers */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* High-contrast WaveDrom text overrides for Dark, Blueprint, and Matrix skins */
+.wavedrom-render-host svg text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace, sans-serif !important;
+}
+
+/* Deep Space Geek Black (dark) */
+[data-skin="dark"] .wavedrom-render-host svg g[id^="waves"] > rect,
+[data-skin="dark"] svg g[id^="waves"] > rect,
+.skin-dark svg g[id^="waves"] > rect {
+  fill: #0f172a !important;
+}
+[data-skin="dark"] .wavedrom-render-host svg text,
+[data-skin="dark"] svg text,
+.skin-dark svg text {
+  fill: #f8fafc !important;
+}
+[data-skin="dark"] .wavedrom-render-host svg text.info,
+[data-skin="dark"] svg text.info,
+.skin-dark svg text.info {
+  fill: #38bdf8 !important;
+  font-weight: 700 !important;
+}
+[data-skin="dark"] .wavedrom-render-host svg text.muted,
+[data-skin="dark"] svg text.muted,
+.skin-dark svg text.muted {
+  fill: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
+
+/* Circuit Blueprint (blueprint) */
+[data-skin="blueprint"] .wavedrom-render-host svg g[id^="waves"] > rect,
+[data-skin="blueprint"] svg g[id^="waves"] > rect,
+.skin-blueprint svg g[id^="waves"] > rect {
+  fill: #0b1d3a !important;
+}
+[data-skin="blueprint"] .wavedrom-render-host svg text,
+[data-skin="blueprint"] svg text,
+.skin-blueprint svg text {
+  fill: #e0f2fe !important;
+}
+[data-skin="blueprint"] .wavedrom-render-host svg text.info,
+[data-skin="blueprint"] svg text.info,
+.skin-blueprint svg text.info {
+  fill: #38bdf8 !important;
+  font-weight: 700 !important;
+}
+[data-skin="blueprint"] .wavedrom-render-host svg text.muted,
+[data-skin="blueprint"] svg text.muted,
+.skin-blueprint svg text.muted {
+  fill: #7dd3fc !important;
+  font-weight: 500 !important;
+}
+[data-skin="blueprint"] .wavedrom-render-host svg path.s1,
+[data-skin="blueprint"] .wavedrom-render-host svg path.s2 {
+  stroke: #38bdf8 !important;
+}
+
+/* Terminal Matrix Green (matrix) */
+[data-skin="matrix"] .wavedrom-render-host svg g[id^="waves"] > rect,
+[data-skin="matrix"] svg g[id^="waves"] > rect,
+.skin-matrix svg g[id^="waves"] > rect {
+  fill: #050d08 !important;
+}
+[data-skin="matrix"] .wavedrom-render-host svg text,
+[data-skin="matrix"] svg text,
+.skin-matrix svg text {
+  fill: #86efac !important;
+}
+[data-skin="matrix"] .wavedrom-render-host svg text.info,
+[data-skin="matrix"] svg text.info,
+.skin-matrix svg text.info {
+  fill: #4ade80 !important;
+  font-weight: 700 !important;
+}
+[data-skin="matrix"] .wavedrom-render-host svg text.muted,
+[data-skin="matrix"] svg text.muted,
+.skin-matrix svg text.muted {
+  fill: #22c55e !important;
+  font-weight: 500 !important;
+}
+[data-skin="matrix"] .wavedrom-render-host svg path.s1,
+[data-skin="matrix"] .wavedrom-render-host svg path.s2 {
+  stroke: #22c55e !important;
+}
+
+/* Cyberpunk Neon */
+[data-skin="cyberpunk"] .wavedrom-render-host svg g[id^="waves"] > rect,
+[data-skin="cyberpunk"] svg g[id^="waves"] > rect,
+.skin-cyberpunk svg g[id^="waves"] > rect {
+  fill: #120924 !important;
+}
+[data-skin="cyberpunk"] .wavedrom-render-host svg text,
+[data-skin="cyberpunk"] svg text,
+.skin-cyberpunk svg text {
+  fill: #fdf2f8 !important;
+}
+[data-skin="cyberpunk"] .wavedrom-render-host svg text.info,
+[data-skin="cyberpunk"] svg text.info,
+.skin-cyberpunk svg text.info {
+  fill: #f472b6 !important;
+  font-weight: 700 !important;
+}
+[data-skin="cyberpunk"] .wavedrom-render-host svg text.muted,
+[data-skin="cyberpunk"] svg text.muted,
+.skin-cyberpunk svg text.muted {
+  fill: #c084fc !important;
+}
+
