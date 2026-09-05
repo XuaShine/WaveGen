@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -17,13 +20,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install dependencies
         run: npm install
 
-      - name: Build Vite and Package Windows App
-        run: npm run electron:dist
+      - name: Build Vite Web Assets
+        run: npm run build
+
+      - name: Package Windows App (NSIS Setup.exe)
+        run: npx electron-builder --win nsis --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows Setup Installer
         uses: actions/upload-artifact@v4
