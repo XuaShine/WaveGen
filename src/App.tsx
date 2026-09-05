@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Navbar, ThemeMode } from './components/Navbar';
 import { WaveformPreview } from './components/WaveformPreview';
 import { SignalRow } from './components/SignalRow';
-import { EdgeEditor } from './components/EdgeEditor';
+import { EdgeEditor, EdgeEditorPosition } from './components/EdgeEditor';
 import { HeadFootEditor } from './components/HeadFootEditor';
 import { HeadFootConfigModal } from './components/HeadFootConfigModal';
 import { HelpAndGuideModal } from './components/HelpAndGuideModal';
@@ -338,6 +338,23 @@ export default function App() {
       return 'split';
     }
   });
+
+  // Edge editor position: 'left_bottom' (under signals in left pane) or 'right_bottom' (under waveform in right pane)
+  const [edgeEditorPosition, setEdgeEditorPosition] = useState<EdgeEditorPosition>(() => {
+    try {
+      const saved = localStorage.getItem('wavedrom_edge_editor_position');
+      return saved === 'right_bottom' ? 'right_bottom' : 'left_bottom';
+    } catch {
+      return 'left_bottom';
+    }
+  });
+
+  const handleEdgeEditorPositionChange = (pos: EdgeEditorPosition) => {
+    setEdgeEditorPosition(pos);
+    try {
+      localStorage.setItem('wavedrom_edge_editor_position', pos);
+    } catch {}
+  };
   // Sticky preview state: When pinned, scrolling down keeps the waveform visible at top
   const [isPinned, setIsPinned] = useState<boolean>(true);
   // Compact preview height toggle
@@ -2418,22 +2435,26 @@ export default function App() {
               )}
             </div>
 
-            {/* Edge / Arrow Annotations Editor */}
-            <section>
-              <EdgeEditor
-                edges={edges}
-                signals={signals}
-                totalCycles={totalCycles}
-                onChange={setEdges}
-                onUpdateSignalNode={handleUpdateSignalNode}
-                onAddPipelineTapSignal={handleAddPipelineTapSignal}
-                onOpenTextGuide={() => {
-                  setHelpGuideInitialTab('textGuide');
-                  setIsHelpAndGuideModalOpen(true);
-                }}
-                onOpenSetupHoldModal={() => setIsSetupHoldModalOpen(true)}
-              />
-            </section>
+            {/* Edge / Arrow Annotations Editor (Shown here if left_bottom or stacked layout) */}
+            {(edgeEditorPosition === 'left_bottom' || layoutMode === 'stacked') && (
+              <section>
+                <EdgeEditor
+                  edges={edges}
+                  signals={signals}
+                  totalCycles={totalCycles}
+                  onChange={setEdges}
+                  onUpdateSignalNode={handleUpdateSignalNode}
+                  onAddPipelineTapSignal={handleAddPipelineTapSignal}
+                  onOpenTextGuide={() => {
+                    setHelpGuideInitialTab('textGuide');
+                    setIsHelpAndGuideModalOpen(true);
+                  }}
+                  onOpenSetupHoldModal={() => setIsSetupHoldModalOpen(true)}
+                  position={edgeEditorPosition}
+                  onChangePosition={handleEdgeEditorPositionChange}
+                />
+              </section>
+            )}
           </div>
 
           {/* Middle Resizable Splitter Bar (User Request: 中间可以调节占界面右半边多少的比例) */}
@@ -2486,34 +2507,57 @@ export default function App() {
                 maxWidth: `${rightPanePercent}%`,
               }}
             >
-              <WaveformPreview
-                waveJson={currentWaveJson}
-                skin={config.skin || 'default'}
-                isPinned={isPinned}
-                onTogglePin={() => setIsPinned(!isPinned)}
-                isCompact={isCompactPreview}
-                onToggleCompact={() => setIsCompactPreview(!isCompactPreview)}
-                onSkinChange={(newSkin) => setConfig((prev) => ({ ...prev, skin: newSkin }))}
-                onOpenHeadFootConfig={() => setIsHeadFootConfigModalOpen(true)}
-                onOpenFontModal={() => setIsWaveformFontModalOpen(true)}
-                autoFitTrigger={autoFitTrigger}
-                hoveredCycle={hoveredCycle}
-                onHoverCycleChange={setHoveredCycle}
-                lockedCycle={lockedCycle}
-                onLockCycleChange={setLockedCycle}
-                totalCycles={totalCycles}
-                fillHeight={true}
-                layoutMode="split"
-                onToggleLayoutMode={() => {
-                  setLayoutMode('stacked');
-                  try {
-                    localStorage.setItem('wavedrom_layout_mode', 'stacked');
-                  } catch {}
-                  setAutoFitTrigger((prev) => prev + 1);
-                }}
-                splitRatio={rightPanePercent}
-                onSetSplitRatio={handleSetRatioPreset}
-              />
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <WaveformPreview
+                  waveJson={currentWaveJson}
+                  skin={config.skin || 'default'}
+                  isPinned={isPinned}
+                  onTogglePin={() => setIsPinned(!isPinned)}
+                  isCompact={isCompactPreview}
+                  onToggleCompact={() => setIsCompactPreview(!isCompactPreview)}
+                  onSkinChange={(newSkin) => setConfig((prev) => ({ ...prev, skin: newSkin }))}
+                  onOpenHeadFootConfig={() => setIsHeadFootConfigModalOpen(true)}
+                  onOpenFontModal={() => setIsWaveformFontModalOpen(true)}
+                  autoFitTrigger={autoFitTrigger}
+                  hoveredCycle={hoveredCycle}
+                  onHoverCycleChange={setHoveredCycle}
+                  lockedCycle={lockedCycle}
+                  onLockCycleChange={setLockedCycle}
+                  totalCycles={totalCycles}
+                  fillHeight={true}
+                  layoutMode="split"
+                  onToggleLayoutMode={() => {
+                    setLayoutMode('stacked');
+                    try {
+                      localStorage.setItem('wavedrom_layout_mode', 'stacked');
+                    } catch {}
+                    setAutoFitTrigger((prev) => prev + 1);
+                  }}
+                  splitRatio={rightPanePercent}
+                  onSetSplitRatio={handleSetRatioPreset}
+                />
+              </div>
+
+              {/* Edge / Arrow Annotations Editor at bottom of right column */}
+              {edgeEditorPosition === 'right_bottom' && (
+                <div className="shrink-0 pt-0.5 max-h-[42%] overflow-y-auto">
+                  <EdgeEditor
+                    edges={edges}
+                    signals={signals}
+                    totalCycles={totalCycles}
+                    onChange={setEdges}
+                    onUpdateSignalNode={handleUpdateSignalNode}
+                    onAddPipelineTapSignal={handleAddPipelineTapSignal}
+                    onOpenTextGuide={() => {
+                      setHelpGuideInitialTab('textGuide');
+                      setIsHelpAndGuideModalOpen(true);
+                    }}
+                    onOpenSetupHoldModal={() => setIsSetupHoldModalOpen(true)}
+                    position={edgeEditorPosition}
+                    onChangePosition={handleEdgeEditorPositionChange}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

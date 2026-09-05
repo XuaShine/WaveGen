@@ -371,6 +371,39 @@ export function applyFontConfigToSvg(
 }
 
 /**
+ * Protects tick/tock from WaveDrom library internal mutation bugs.
+ * In WaveDrom wavedrom.js ticktock():
+ *   source2.head.tick = source2.head.tick + lane.xmin_cfg / 2;
+ * If tick is a string like "0 2", JavaScript concatenates "0 2" + 0 = "0 20"!
+ * This causes step 2 to become step 20 (0, 20, 40, 60), 0.5 to become 0.50, and 0.25 to become 0.250.
+ * By defining a getter/setter property, we intercept and preserve the exact intended step & formatting.
+ */
+export function protectHeadFootTicks(waveObj: any): void {
+  if (!waveObj) return;
+  ['head', 'foot'].forEach((section) => {
+    if (waveObj[section] && typeof waveObj[section] === 'object') {
+      ['tick', 'tock'].forEach((prop) => {
+        if (waveObj[section][prop] !== undefined && waveObj[section][prop] !== null) {
+          let rawVal = waveObj[section][prop];
+          Object.defineProperty(waveObj[section], prop, {
+            get() {
+              return rawVal;
+            },
+            set(v) {
+              if (typeof rawVal === 'number' && typeof v === 'number') {
+                rawVal = v;
+              }
+            },
+            configurable: true,
+            enumerable: true,
+          });
+        }
+      });
+    }
+  });
+}
+
+/**
  * Renders a WaveJSON object into the specified DOM container element.
  */
 export function renderWaveToElement(
@@ -384,12 +417,17 @@ export function renderWaveToElement(
     // WaveDrom selects the skin matching config.skin from the skinDictionary
     const preparedWaveJson: WaveJson = {
       ...waveJson,
+      head: waveJson.head ? { ...waveJson.head } : undefined,
+      foot: waveJson.foot ? { ...waveJson.foot } : undefined,
       config: {
         hscale: waveJson.config?.hscale ?? 1,
         ...(waveJson.config || {}),
         skin: (skinName || 'default') as WaveSkin,
       },
     };
+
+    // Protect head/foot tick values from WaveDrom internal mutation bugs
+    protectHeadFootTicks(preparedWaveJson);
 
     // Always supply a fresh, unmutated skin dictionary clone
     const skinDict = getFreshSkinDictionary();
@@ -437,12 +475,17 @@ export function getWaveSvgString(
   try {
     const preparedWaveJson: WaveJson = {
       ...waveJson,
+      head: waveJson.head ? { ...waveJson.head } : undefined,
+      foot: waveJson.foot ? { ...waveJson.foot } : undefined,
       config: {
         hscale: waveJson.config?.hscale ?? 1,
         ...(waveJson.config || {}),
         skin: (skinName || 'default') as WaveSkin,
       },
     };
+
+    // Protect head/foot tick values from WaveDrom internal mutation bugs
+    protectHeadFootTicks(preparedWaveJson);
 
     const skinDict = getFreshSkinDictionary();
 

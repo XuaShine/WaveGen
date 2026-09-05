@@ -507,7 +507,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
         heightMode === 'fill' ? 'h-full flex-1 min-h-0' : ''
       } ${className}`}
     >
-      {/* Top Preview Toolbar: Row 1 (Title, Period Ruler, Text & Typography, Guideline, and Layout Switcher) */}
+      {/* Top Preview Toolbar: Row 1 (Title, Period Ruler, Text & Typography, Waveform Skin, and Guideline) */}
       <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs shrink-0 overflow-x-auto">
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -574,207 +574,207 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             <Crosshair className="w-3.5 h-3.5" />
           </button>
         </div>
-
-        {/* Right of Row 1: Layout Mode Switcher & Split Ratio Presets (On the same line as 字体配置) */}
-        {onToggleLayoutMode && (
-          <div className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs text-[11px] font-semibold shrink-0">
-            <button
-              type="button"
-              onClick={onToggleLayoutMode}
-              className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded cursor-pointer transition-colors"
-              title={layoutMode === 'split' ? (lang === 'zh' ? '点击切为上下堆叠布局' : 'Switch to Stacked View') : (lang === 'zh' ? '点击切为左右分屏布局' : 'Switch to Split View')}
-            >
-              {layoutMode === 'split' ? (
-                <>
-                  <Rows className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                  <span>{lang === 'zh' ? '上下视图' : 'Stacked'}</span>
-                </>
-              ) : (
-                <>
-                  <Columns className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                  <span>{lang === 'zh' ? '左右分屏' : 'Split'}</span>
-                </>
-              )}
-            </button>
-
-            {layoutMode === 'split' && onSetSplitRatio && (
-              <div className="flex items-center border-l border-slate-200 dark:border-slate-700 pl-1 gap-0.5 font-mono text-[10px]">
-                {[35, 50, 60, 70].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => onSetSplitRatio(preset)}
-                    className={`px-1 py-0.5 rounded transition-colors cursor-pointer ${
-                      splitRatio !== undefined && Math.round(splitRatio) === preset
-                        ? 'bg-blue-600 text-white font-bold'
-                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                    title={lang === 'zh' ? `右侧波形占比 ${preset}%` : `Right pane ${preset}%`}
-                  >
-                    {preset}%
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Top Preview Toolbar: Row 2 (Height Controls, Pin, Auto-fit, Zoom, and Export Buttons) */}
+      {/* Top Preview Toolbar: Row 2 (Layout Mode Switcher moved here left-aligned, Height Controls, Pin, Auto-fit, Zoom, and Export Buttons) */}
       <div className="flex items-center justify-between gap-2 px-3 py-1 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-100/70 dark:bg-slate-900/60 shrink-0 overflow-x-auto max-w-full">
-        {/* Left: Height controls */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs text-[11px] font-semibold overflow-hidden shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                const currentH = heightMode === 'custom' ? customHeight : (viewportRef.current?.clientHeight || 340);
-                const nextH = Math.max(140, currentH - 40);
-                updateHeightMode('custom');
-                setCustomHeight(nextH);
-              }}
-              className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 cursor-pointer select-none"
-              title={lang === 'zh' ? '高度 -40px' : 'Decrease height (-40px)'}
-            >
-              -
-            </button>
-            <div className="relative">
+        {/* Left: Layout Switcher & Height controls (Left-aligned as requested) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Layout Mode Switcher & Split Ratio Presets (Now on Row 2 left-aligned) */}
+          {onToggleLayoutMode && (
+            <div className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs text-[11px] font-semibold shrink-0">
               <button
                 type="button"
-                onClick={() => setShowSizeMenu(!showSizeMenu)}
-                className="flex items-center gap-1 px-2 py-0.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 cursor-pointer"
-                title={lang === 'zh' ? '点击选择高度预设或直接输入' : 'Select height presets or enter pixels'}
+                onClick={onToggleLayoutMode}
+                className="flex items-center gap-1 px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded cursor-pointer transition-colors"
+                title={layoutMode === 'split' ? (lang === 'zh' ? '点击切为上下堆叠布局' : 'Switch to Stacked View') : (lang === 'zh' ? '点击切为左右分屏布局' : 'Switch to Split View')}
               >
-                <MoveVertical className="w-2.5 h-2.5 text-blue-500 shrink-0" />
-                <span className="font-mono whitespace-nowrap">
-                  {heightMode === 'fill' ? t('height_fill') : heightMode === 'auto' ? t('height_auto') : `${customHeight}px`}
-                </span>
-                <ChevronDown className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                {layoutMode === 'split' ? (
+                  <>
+                    <Rows className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                    <span>{lang === 'zh' ? '上下视图' : 'Stacked'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Columns className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                    <span>{lang === 'zh' ? '左右分屏' : 'Split'}</span>
+                  </>
+                )}
               </button>
-              {showSizeMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowSizeMenu(false)}
-                  />
-                  <div className="absolute top-full left-0 mt-1.5 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
+
+              {layoutMode === 'split' && onSetSplitRatio && (
+                <div className="flex items-center border-l border-slate-200 dark:border-slate-700 pl-1 gap-0.5 font-mono text-[10px]">
+                  {[35, 50, 60, 70].map((preset) => (
                     <button
+                      key={preset}
                       type="button"
-                      onClick={() => {
-                        updateHeightMode('fill');
-                        setShowSizeMenu(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer text-xs ${
-                        heightMode === 'fill'
-                          ? 'font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-slate-700/60'
-                          : 'text-slate-700 dark:text-slate-200'
+                      onClick={() => onSetSplitRatio(preset)}
+                      className={`px-1 py-0.5 rounded transition-colors cursor-pointer ${
+                        splitRatio !== undefined && Math.round(splitRatio) === preset
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                       }`}
+                      title={lang === 'zh' ? `右侧波形占比 ${preset}%` : `Right pane ${preset}%`}
                     >
-                      <span className="flex items-center gap-1.5">
-                        <MoveVertical className="w-3.5 h-3.5 text-blue-500" />
-                        <span>{t('height_fill')}</span>
-                      </span>
-                      {heightMode === 'fill' && <Check className="w-3 h-3 text-blue-600" />}
+                      {preset}%
                     </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        updateHeightMode('auto');
-                        setShowSizeMenu(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer text-xs ${
-                        heightMode === 'auto'
-                          ? 'font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-slate-700/60'
-                          : 'text-slate-700 dark:text-slate-200'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <Scan className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>{t('height_auto')}</span>
-                      </span>
-                      {heightMode === 'auto' && <Check className="w-3 h-3 text-blue-600" />}
-                    </button>
-
-                    <div className="border-t border-slate-100 dark:border-slate-700 my-1" />
-
-                    <div className="px-3 py-1 flex items-center gap-1.5">
-                      <span className="text-[11px] text-slate-500">{lang === 'zh' ? '像素:' : 'Pixel:'}</span>
-                      <input
-                        type="number"
-                        min="140"
-                        max="1400"
-                        step="20"
-                        value={customHeight}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          if (!isNaN(val) && val >= 100 && val <= 2000) {
-                            updateHeightMode('custom');
-                            setCustomHeight(val);
-                          }
-                        }}
-                        className="w-16 px-1.5 py-0.5 text-xs font-mono font-bold bg-slate-100 dark:bg-slate-700 rounded border border-slate-300 dark:border-slate-600 text-center"
-                      />
-                      <span className="text-[11px] font-mono text-slate-400">px</span>
-                    </div>
-
-                    <div className="border-t border-slate-100 dark:border-slate-700 my-1" />
-                    <div className="px-3 py-0.5 font-bold text-[10px] text-slate-400 uppercase tracking-wider">
-                      {lang === 'zh' ? '快捷预设' : 'Presets'}
-                    </div>
-                    {HEIGHT_PRESETS.map((preset) => (
+          {/* Height controls: - [Height] + [Fill Bottom] */}
+          <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs text-[11px] font-semibold overflow-hidden shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const currentH = heightMode === 'custom' ? customHeight : (viewportRef.current?.clientHeight || 340);
+                  const nextH = Math.max(140, currentH - 40);
+                  updateHeightMode('custom');
+                  setCustomHeight(nextH);
+                }}
+                className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 cursor-pointer select-none"
+                title={lang === 'zh' ? '高度 -40px' : 'Decrease height (-40px)'}
+              >
+                -
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowSizeMenu(!showSizeMenu)}
+                  className="flex items-center gap-1 px-2 py-0.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 cursor-pointer"
+                  title={lang === 'zh' ? '点击选择高度预设或直接输入' : 'Select height presets or enter pixels'}
+                >
+                  <MoveVertical className="w-2.5 h-2.5 text-blue-500 shrink-0" />
+                  <span className="font-mono whitespace-nowrap">
+                    {heightMode === 'fill' ? t('height_fill') : heightMode === 'auto' ? t('height_auto') : `${customHeight}px`}
+                  </span>
+                  <ChevronDown className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                </button>
+                {showSizeMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowSizeMenu(false)}
+                    />
+                    <div className="absolute top-full left-0 mt-1.5 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
                       <button
-                        key={preset.value}
                         type="button"
                         onClick={() => {
-                          updateHeightMode('custom');
-                          setCustomHeight(preset.value);
+                          updateHeightMode('fill');
                           setShowSizeMenu(false);
                         }}
                         className={`w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer text-xs ${
-                          heightMode === 'custom' && customHeight === preset.value
+                          heightMode === 'fill'
                             ? 'font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-slate-700/60'
                             : 'text-slate-700 dark:text-slate-200'
                         }`}
                       >
-                        <span>{lang === 'zh' ? preset.labelZh : preset.labelEn}</span>
-                        {heightMode === 'custom' && customHeight === preset.value && (
-                          <Check className="w-3 h-3 text-blue-600" />
-                        )}
+                        <span className="flex items-center gap-1.5">
+                          <span>↕️</span>
+                          <span>{t('height_fill')}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400">{lang === 'zh' ? '占满底部' : 'Full Height'}</span>
                       </button>
-                    ))}
-                  </div>
-                </>
-              )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateHeightMode('auto');
+                          setShowSizeMenu(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer text-xs ${
+                          heightMode === 'auto'
+                            ? 'font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-slate-700/60'
+                            : 'text-slate-700 dark:text-slate-200'
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>📐</span>
+                          <span>{t('height_auto')}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400">{lang === 'zh' ? '随内容' : 'Fit Content'}</span>
+                      </button>
+
+                      <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                      <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        {lang === 'zh' ? '常用高度预设' : 'Height Presets'}
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 px-2 py-1">
+                        {[240, 320, 400, 500, 640, 800].map((h) => (
+                          <button
+                            key={h}
+                            type="button"
+                            onClick={() => {
+                              updateHeightMode('custom');
+                              setCustomHeight(h);
+                              setShowSizeMenu(false);
+                            }}
+                            className={`px-2 py-1 rounded text-center font-mono text-xs cursor-pointer transition-colors ${
+                              heightMode === 'custom' && customHeight === h
+                                ? 'bg-blue-600 text-white font-bold'
+                                : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200'
+                            }`}
+                          >
+                            {h}px
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                      <div className="px-3 py-1 flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-slate-500">{lang === 'zh' ? '自定义像素' : 'Custom px'}:</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="140"
+                            max="1600"
+                            step="20"
+                            value={customHeight}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 340;
+                              updateHeightMode('custom');
+                              setCustomHeight(val);
+                            }}
+                            className="w-16 px-1.5 py-0.5 font-mono text-xs text-center border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900"
+                          />
+                          <span className="text-[11px] text-slate-400">px</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentH = heightMode === 'custom' ? customHeight : (viewportRef.current?.clientHeight || 340);
+                  const nextH = Math.min(1600, currentH + 40);
+                  updateHeightMode('custom');
+                  setCustomHeight(nextH);
+                }}
+                className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 cursor-pointer select-none"
+                title={lang === 'zh' ? '高度 +40px' : 'Increase height (+40px)'}
+              >
+                +
+              </button>
             </div>
+
+            {/* Direct Fill Bottom Toggle Button */}
             <button
               type="button"
-              onClick={() => {
-                const currentH = heightMode === 'custom' ? customHeight : (viewportRef.current?.clientHeight || 340);
-                const nextH = Math.min(1200, currentH + 40);
-                updateHeightMode('custom');
-                setCustomHeight(nextH);
-              }}
-              className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 cursor-pointer select-none"
-              title={lang === 'zh' ? '高度 +40px' : 'Increase height (+40px)'}
+              onClick={() => updateHeightMode(heightMode === 'fill' ? 'custom' : 'fill')}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all cursor-pointer shadow-2xs shrink-0 ${
+                heightMode === 'fill'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+              }`}
+              title={heightMode === 'fill' ? (lang === 'zh' ? '点击退出撑满，恢复自定义高度' : 'Click to exit fill mode') : (lang === 'zh' ? '点击撑满底部空间' : 'Fill height')}
             >
-              +
+              <span>{t('height_fill')}</span>
             </button>
           </div>
-
-          {/* Direct Fill Button */}
-          <button
-            type="button"
-            onClick={() => updateHeightMode(heightMode === 'fill' ? 'auto' : 'fill')}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all cursor-pointer shadow-2xs shrink-0 ${
-              heightMode === 'fill'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
-            }`}
-            title={heightMode === 'fill' ? (lang === 'zh' ? '已占满底部' : 'Filled') : (lang === 'zh' ? '占满底部' : 'Fill height')}
-          >
-            <span>{t('height_fill')}</span>
-          </button>
         </div>
 
         {/* Right: Actions, Zoom, Export buttons */}

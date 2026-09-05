@@ -6,9 +6,17 @@ import {
   Clock,
   GitCommit,
   X,
+  PanelBottom,
+  PanelLeft,
+  ChevronDown,
+  ChevronUp,
+  Tag,
+  Zap,
 } from 'lucide-react';
 import { EdgeAnnotation, SignalItem } from '../types';
 import { useI18n } from '../lib/i18n';
+
+export type EdgeEditorPosition = 'left_bottom' | 'right_bottom';
 
 interface EdgeEditorProps {
   edges: EdgeAnnotation[];
@@ -19,6 +27,9 @@ interface EdgeEditorProps {
   onOpenTextGuide?: () => void;
   onOpenSetupHoldModal?: () => void;
   onAddPipelineTapSignal?: (signalId: string) => void;
+  position?: EdgeEditorPosition;
+  onChangePosition?: (pos: EdgeEditorPosition) => void;
+  className?: string;
 }
 
 const ARROW_TYPES: Array<{ value: EdgeAnnotation['arrow']; labelZh: string; labelEn: string; descZh: string; descEn: string }> = [
@@ -42,9 +53,13 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
   onOpenTextGuide,
   onOpenSetupHoldModal,
   onAddPipelineTapSignal,
+  position = 'left_bottom',
+  onChangePosition,
+  className = '',
 }) => {
   const { lang } = useI18n();
   const [isOpen, setIsOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'edges' | 'nodes'>('edges');
   const [source, setSource] = useState('a');
   const [target, setTarget] = useState('b');
   const [arrow, setArrow] = useState<EdgeAnnotation['arrow']>('~>');
@@ -83,7 +98,6 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
   const [targetCycle, setTargetCycle] = useState(0);
   const [newNodeLetter, setNewNodeLetter] = useState(nextAvailableLetter);
 
-  // Sync letter when available changes
   const activeSignalId = targetSignalId && validSignals.some((s) => s.id === targetSignalId)
     ? targetSignalId
     : validSignals[0]?.id || '';
@@ -93,7 +107,6 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
     const tgt = (target || 'b').trim();
     if (!src || !tgt) return;
 
-    // Automatically ensure both nodes exist on signals so WaveDrom always renders the edge visibly
     if (!usedLetters.has(src.toLowerCase()) && validSignals.length > 0) {
       onUpdateSignalNode(validSignals[0].id, Math.min(1, totalCycles - 1), src);
     }
@@ -126,7 +139,6 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
 
     onUpdateSignalNode(activeSignalId, cycle, letter);
 
-    // Auto-advance target/source
     if (!source || source === letter) {
       setSource(letter);
     } else {
@@ -134,7 +146,6 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
     }
   };
 
-  // 1-Click Arrow Presets with guaranteed node placement
   const handleApplyPreset = (presetArrow: EdgeAnnotation['arrow'], defaultLabel: string) => {
     let src = source;
     let tgt = target;
@@ -164,173 +175,212 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden">
-      {/* Header - Lightweight and Clean */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-2">
-          <CornerDownRight className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-          <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+    <div
+      className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden transition-all ${className}`}
+    >
+      {/* Header - Compact and clear with position toggle */}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2 shrink-0">
+          <CornerDownRight className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
             {lang === 'zh' ? '时序连线与跨拍标注' : 'Timing Edges & Node Annotations'}
           </span>
-          <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 px-2 py-0.5 rounded-full font-bold">
-            {lang === 'zh'
-              ? `${edges.length} 条连线 · ${existingNodesList.length} 个节点`
-              : `${edges.length} edge(s) · ${existingNodesList.length} node(s)`}
+          <span className="text-[10px] bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 px-1.5 py-0.2 rounded-full font-mono font-bold">
+            {edges.length} {lang === 'zh' ? '线' : 'edges'} · {existingNodesList.length} {lang === 'zh' ? '点' : 'nodes'}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Setup & Hold Wizard Quick Link */}
           {onOpenSetupHoldModal && (
             <button
               type="button"
               onClick={onOpenSetupHoldModal}
-              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 font-semibold cursor-pointer transition-colors shadow-2xs"
-              title={lang === 'zh' ? '一键打开建立时间 (t_setup) 与保持时间 (t_hold) 延时生成向导' : 'Open Setup & Hold Time Wizard'}
+              className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 font-medium cursor-pointer transition-colors shadow-2xs shrink-0"
+              title={lang === 'zh' ? '打开建立时间与保持时间向导' : 'Open Setup & Hold Wizard'}
             >
-              <Clock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>{lang === 'zh' ? '⏱️ 建立/保持向导' : '⏱️ Setup/Hold Wizard'}</span>
+              <Clock className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+              <span>{lang === 'zh' ? '建立保持向导' : 'Setup/Hold'}</span>
             </button>
           )}
 
+          {/* Position Switcher: Left column bottom vs Waveform preview bottom */}
+          {onChangePosition && (
+            <button
+              type="button"
+              onClick={() => onChangePosition(position === 'right_bottom' ? 'left_bottom' : 'right_bottom')}
+              className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium cursor-pointer transition-colors shadow-2xs shrink-0"
+              title={
+                position === 'right_bottom'
+                  ? (lang === 'zh' ? '点击移至左侧列表下方' : 'Move to left column')
+                  : (lang === 'zh' ? '点击移至右侧波形下方' : 'Move under waveform preview')
+              }
+            >
+              {position === 'right_bottom' ? (
+                <>
+                  <PanelLeft className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                  <span>{lang === 'zh' ? '移至左下' : 'To Left'}</span>
+                </>
+              ) : (
+                <>
+                  <PanelBottom className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                  <span>{lang === 'zh' ? '移至波形下方' : 'Under Waveform'}</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Collapse / Expand */}
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium cursor-pointer"
+            className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer rounded"
+            title={isOpen ? (lang === 'zh' ? '收起面板' : 'Collapse') : (lang === 'zh' ? '展开面板' : 'Expand')}
           >
-            {isOpen ? (lang === 'zh' ? '收起' : 'Collapse') : (lang === 'zh' ? '展开' : 'Expand')}
+            {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
 
       {isOpen && (
-        <div className="p-3.5 flex flex-col gap-3 text-xs">
-          {/* Section 1: Edge Creation Form */}
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 flex flex-col gap-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-bold text-slate-700 dark:text-slate-300">
-                {lang === 'zh' ? '新建连线与跨拍标注' : 'New Timing Edge & Span Annotation'}
-              </span>
-
-              {/* 1-Click Arrow Presets */}
-              <div className="flex items-center gap-1 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => handleApplyPreset('~>', 't_setup ≥ 2.5ns')}
-                  className="px-2 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium"
-                  title={lang === 'zh' ? '生成标准建立时间 (t_setup) 曲线箭头' : 'Generate standard t_setup edge'}
-                >
-                  + t_setup
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleApplyPreset('~>', 't_hold ≥ 1.0ns')}
-                  className="px-2 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium"
-                  title={lang === 'zh' ? '生成标准保持时间 (t_hold) 曲线箭头' : 'Generate standard t_hold edge'}
-                >
-                  + t_hold
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleApplyPreset('<->', lang === 'zh' ? 'Δt 测量' : 'Δt Measure')}
-                  className="px-2 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium"
-                  title={lang === 'zh' ? '生成双向时序测量箭头' : 'Generate bidirectional measurement arrow'}
-                >
-                  {lang === 'zh' ? '+ 双向测量' : '+ Δt Measure'}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-700 dark:text-slate-300">
-                  {lang === 'zh' ? '起点:' : 'Start:'}
-                </span>
-                <input
-                  type="text"
-                  value={source}
-                  onChange={(e) => setSource(e.target.value)}
-                  placeholder={lang === 'zh' ? '如 a' : 'e.g. a'}
-                  className="w-12 px-2 py-1 font-mono text-center font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
-                />
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-700 dark:text-slate-300">
-                  {lang === 'zh' ? '箭头:' : 'Arrow:'}
-                </span>
-                <select
-                  value={arrow}
-                  onChange={(e) => setArrow(e.target.value as any)}
-                  className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 font-mono text-xs font-semibold"
-                >
-                  {ARROW_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {lang === 'zh' ? t.labelZh : t.labelEn}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-700 dark:text-slate-300">
-                  {lang === 'zh' ? '终点:' : 'End:'}
-                </span>
-                <input
-                  type="text"
-                  value={target}
-                  onChange={(e) => setTarget(e.target.value)}
-                  placeholder={lang === 'zh' ? '如 b' : 'e.g. b'}
-                  className="w-12 px-2 py-1 font-mono text-center font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
-                />
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
-                <span className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                  {lang === 'zh' ? '文字标注:' : 'Label:'}
-                </span>
-                <input
-                  type="text"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder={lang === 'zh' ? '如 t_setup ≥ 2.5ns / 握手有效' : 'e.g. t_setup ≥ 2.5ns / Handshake Valid'}
-                  className="flex-1 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs"
-                />
-              </div>
-
+        <div className="p-2.5 flex flex-col gap-2 text-xs">
+          {/* Subheader: Mode tabs & Quick Presets in one line */}
+          <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-slate-100 dark:border-slate-800">
+            {/* Compact Tabs */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
               <button
                 type="button"
-                onClick={handleAddEdge}
-                disabled={!source || !target}
-                className="flex items-center gap-1 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-xs disabled:opacity-40 transition-colors cursor-pointer"
+                onClick={() => setActiveTab('edges')}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                  activeTab === 'edges'
+                    ? 'bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-300 shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{lang === 'zh' ? '添加连线' : 'Add Edge'}</span>
+                <Zap className="w-3 h-3 text-purple-500" />
+                <span>{lang === 'zh' ? `时序连线 (${edges.length})` : `Edges (${edges.length})`}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('nodes')}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                  activeTab === 'nodes'
+                    ? 'bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-300 shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <Tag className="w-3 h-3 text-indigo-500" />
+                <span>{lang === 'zh' ? `节点打标 (${existingNodesList.length})` : `Nodes (${existingNodesList.length})`}</span>
               </button>
             </div>
 
-            {/* Configured Timing Edges */}
-            <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-200 dark:border-slate-700/60">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-700 dark:text-slate-300 font-bold text-[11px] flex items-center gap-1">
-                  <GitCommit className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                  <span>
-                    {lang === 'zh'
-                      ? `已配置的时序连线 (${edges.length})`
-                      : `Configured Timing Edges (${edges.length})`}
-                  </span>
-                </span>
-                {edges.length > 0 && (
-                  <span className="text-[10px] text-slate-400">
-                    {lang === 'zh' ? '点击连线载入修改，点击垃圾桶删除' : 'Click edge to load, click trash to delete'}
-                  </span>
-                )}
+            {/* Quick Presets Pills */}
+            <div className="flex items-center gap-1 text-[11px]">
+              <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">{lang === 'zh' ? '预设:' : 'Presets:'}</span>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset('~>', 't_setup ≥ 2.5ns')}
+                className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium text-[10px]"
+                title={lang === 'zh' ? '生成建立时间 (t_setup) 曲线连线' : 'Add t_setup edge'}
+              >
+                + t_setup
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset('~>', 't_hold ≥ 1.0ns')}
+                className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium text-[10px]"
+                title={lang === 'zh' ? '生成保持时间 (t_hold) 曲线连线' : 'Add t_hold edge'}
+              >
+                + t_hold
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset('<->', lang === 'zh' ? 'Δt 测量' : 'Δt Measure')}
+                className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium text-[10px]"
+                title={lang === 'zh' ? '生成双向测量箭头' : 'Add bidirectional measurement'}
+              >
+                {lang === 'zh' ? '+ 双向标尺' : '+ Bidir'}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset('->', 't_cq')}
+                className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium text-[10px]"
+                title={lang === 'zh' ? '生成时钟到输出延时 (t_cq) 箭头' : 'Add t_cq delay edge'}
+              >
+                + t_cq
+              </button>
+            </div>
+          </div>
+
+          {/* Tab 1: Timing Edges Form & Chips */}
+          {activeTab === 'edges' && (
+            <div className="flex flex-col gap-2">
+              {/* Compact Creation Form */}
+              <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60">
+                <div className="flex items-center gap-1">
+                  <span className="font-bold text-slate-600 dark:text-slate-300 text-[11px]">{lang === 'zh' ? '源:' : 'Src:'}</span>
+                  <input
+                    type="text"
+                    value={source}
+                    onChange={(e) => setSource(e.target.value)}
+                    placeholder="a"
+                    className="w-10 px-1.5 py-0.5 font-mono text-center font-bold rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <select
+                    value={arrow}
+                    onChange={(e) => setArrow(e.target.value as any)}
+                    className="px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 font-mono text-xs font-semibold"
+                  >
+                    {ARROW_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {lang === 'zh' ? t.labelZh : t.labelEn}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <span className="font-bold text-slate-600 dark:text-slate-300 text-[11px]">{lang === 'zh' ? '目:' : 'Dst:'}</span>
+                  <input
+                    type="text"
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                    placeholder="b"
+                    className="w-10 px-1.5 py-0.5 font-mono text-center font-bold rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 flex-1 min-w-[140px]">
+                  <input
+                    type="text"
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    placeholder={lang === 'zh' ? '文字标注 (如 t_setup ≥ 2.5ns)' : 'Label (e.g. t_setup)'}
+                    className="flex-1 px-2 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddEdge}
+                  disabled={!source || !target}
+                  className="flex items-center gap-1 px-2.5 py-0.5 bg-purple-600 hover:bg-purple-700 text-white rounded font-bold text-xs disabled:opacity-40 transition-colors cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>{lang === 'zh' ? '加连线' : 'Add'}</span>
+                </button>
               </div>
 
-              {edges.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-0.5">
-                  {edges.map((e) => (
+              {/* Configured Edges as Compact Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 min-h-[30px] max-h-40 overflow-y-auto">
+                {edges.length > 0 ? (
+                  edges.map((e) => (
                     <div
                       key={e.id}
-                      className="flex items-center justify-between p-2 rounded-lg border border-purple-200 dark:border-purple-900/60 bg-white dark:bg-slate-900 shadow-2xs hover:border-purple-400 transition-colors"
+                      className="inline-flex items-center rounded-lg border border-purple-200 dark:border-purple-800/80 bg-white dark:bg-slate-800/90 shadow-2xs hover:border-purple-400 transition-colors overflow-hidden text-xs"
                     >
                       <button
                         type="button"
@@ -340,238 +390,172 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
                           setArrow(e.arrow as any);
                           setLabel(e.label || '');
                         }}
-                        className="flex items-center gap-1.5 font-mono text-left cursor-pointer flex-1 min-w-0"
-                        title={lang === 'zh' ? '点击载入此连线至上方表单' : 'Click to load into editor'}
+                        className="flex items-center gap-1 px-2 py-0.5 font-mono text-left cursor-pointer"
+                        title={lang === 'zh' ? '点击载入修改' : 'Click to load into form'}
                       >
-                        <span className="px-1.5 py-0.5 bg-purple-600 text-white rounded font-bold text-xs shrink-0">
-                          {e.source}
-                        </span>
-                        <span className="text-purple-600 dark:text-purple-400 font-bold shrink-0">{e.arrow}</span>
-                        <span className="px-1.5 py-0.5 bg-purple-600 text-white rounded font-bold text-xs shrink-0">
-                          {e.target}
-                        </span>
-                        {e.label ? (
-                          <span
-                            className="text-purple-900 dark:text-purple-200 font-sans text-xs bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800 truncate"
-                            title={e.label}
-                          >
+                        <span className="font-bold text-purple-700 dark:text-purple-300">{e.source}</span>
+                        <span className="text-slate-400 font-bold">{e.arrow}</span>
+                        <span className="font-bold text-purple-700 dark:text-purple-300">{e.target}</span>
+                        {e.label && (
+                          <span className="text-[11px] font-sans text-slate-700 dark:text-slate-200 bg-purple-50 dark:bg-purple-950/60 px-1 py-0.2 rounded border border-purple-200 dark:border-purple-800 max-w-[140px] truncate">
                             {e.label}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-sans italic">
-                            {lang === 'zh' ? '无文字' : 'No label'}
                           </span>
                         )}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleRemoveEdge(e.id)}
-                        className="p-1 text-slate-400 hover:text-rose-500 rounded cursor-pointer transition-colors ml-1 shrink-0"
-                        title={lang === 'zh' ? '删除此时序连线' : 'Delete edge'}
+                        className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer border-l border-slate-100 dark:border-slate-700"
+                        title={lang === 'zh' ? '删除连线' : 'Delete edge'}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <X className="w-3 h-3" />
                       </button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-2 px-3 text-slate-400 dark:text-slate-500 text-[11px] bg-white/60 dark:bg-slate-900/60 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 text-center">
-                  {lang === 'zh'
-                    ? '暂无已配置的时序连线。设置起点、箭头与终点后点击「添加连线」即可生成。'
-                    : 'No timing edges yet. Set start, arrow, and target, then click "Add Edge".'}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Section 2: Rapid Tapping & Node Placement */}
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 flex flex-col gap-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-bold text-slate-700 dark:text-slate-300">
-                {lang === 'zh' ? '节点快速打标' : 'Quick Node Tagging'}
-              </span>
-
-              {/* Hardware DFF Delay Tap Shortcut */}
-              {onAddPipelineTapSignal && activeSignalId && (
-                <button
-                  type="button"
-                  onClick={() => onAddPipelineTapSignal(activeSignalId)}
-                  className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 border border-blue-200 dark:border-blue-800 text-[11px] font-medium cursor-pointer transition-colors"
-                  title={lang === 'zh' ? '自动为此信号打一拍（生成 _d1 寄存器延时信号）' : 'Generate _d1 pipeline register delay signal'}
-                >
-                  {lang === 'zh' ? '+ 为此信号打一拍 (+1D 延时寄存器)' : '+ Tap Signal (+1D Register Delay)'}
-                </button>
-              )}
-            </div>
-
-            {/* Quick Node Tapping Bar */}
-            <div className="flex flex-wrap items-center gap-2 pt-0.5">
-              {/* Target Signal */}
-              <div className="flex items-center gap-1">
-                <span className="text-slate-500 font-medium">
-                  {lang === 'zh' ? '目标信号:' : 'Target Signal:'}
-                </span>
-                <select
-                  value={activeSignalId}
-                  onChange={(e) => setTargetSignalId(e.target.value)}
-                  className="px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-mono font-medium max-w-[140px]"
-                >
-                  {validSignals.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Target Cycle with Stepper & Quick Jump */}
-              <div className="flex items-center gap-1">
-                <span className="text-slate-500 font-medium">
-                  {lang === 'zh' ? '周期:' : 'Cycle:'}
-                </span>
-                <div className="flex items-center rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setTargetCycle((c) => Math.max(0, c - 1))}
-                    className="px-1 text-slate-500 hover:text-slate-800 font-mono font-bold cursor-pointer"
-                    title={lang === 'zh' ? '前移 1 拍' : 'Previous (-1)'}
-                  >
-                    -
-                  </button>
-                  <span className="px-1.5 font-mono font-bold text-xs text-purple-700 dark:text-purple-300 min-w-[28px] text-center">
-                    T{targetCycle}
+                  ))
+                ) : (
+                  <span className="text-slate-400 text-[11px] italic">
+                    {lang === 'zh'
+                      ? '暂无连线。在上方设置源点、终点或点击「预设」即可快速生成。'
+                      : 'No timing edges. Fill above and click Add or click a preset.'}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setTargetCycle((c) => Math.min(totalCycles - 1, c + 1))}
-                    className="px-1 text-slate-500 hover:text-slate-800 font-mono font-bold cursor-pointer"
-                    title={lang === 'zh' ? '后移 1 拍' : 'Next (+1)'}
-                  >
-                    +
-                  </button>
-                </div>
+                )}
               </div>
-
-              {/* Quick Cycle Jump Pills */}
-              <div className="hidden sm:flex items-center gap-1 text-[10px]">
-                {[0, 1, 2, 4, 8].filter((c) => c < totalCycles).map((c) => (
-                  <button
-                    key={`q_cycle_${c}`}
-                    type="button"
-                    onClick={() => setTargetCycle(c)}
-                    className={`px-1.5 py-0.5 rounded border transition-colors cursor-pointer font-mono ${
-                      targetCycle === c
-                        ? 'bg-purple-600 text-white border-purple-600 font-bold'
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-purple-300'
-                    }`}
-                  >
-                    T{c}
-                  </button>
-                ))}
-              </div>
-
-              {/* Node Letter */}
-              <div className="flex items-center gap-1">
-                <span className="text-slate-500 font-medium">
-                  {lang === 'zh' ? '节点:' : 'Node:'}
-                </span>
-                <input
-                  type="text"
-                  maxLength={1}
-                  value={newNodeLetter}
-                  onChange={(e) => setNewNodeLetter(e.target.value.toLowerCase())}
-                  className="w-8 px-1 py-1 text-center font-mono font-bold rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs"
-                />
-              </div>
-
-              {/* Quick Letter Pills */}
-              <div className="flex items-center gap-1 text-[11px]">
-                {['a', 'b', 'c', 'd'].map((lettr) => (
-                  <button
-                    key={`q_let_${lettr}`}
-                    type="button"
-                    onClick={() => {
-                      setNewNodeLetter(lettr);
-                      handleQuickAddNode(lettr);
-                    }}
-                    className={`w-5 h-5 flex items-center justify-center rounded border font-mono font-bold cursor-pointer transition-colors ${
-                      newNodeLetter === lettr
-                        ? 'bg-purple-600 text-white border-purple-600'
-                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-purple-300'
-                    }`}
-                    title={lang === 'zh' ? `打标节点 [${lettr}]` : `Tag node [${lettr}]`}
-                  >
-                    {lettr}
-                  </button>
-                ))}
-              </div>
-
-              {/* Primary Action Button */}
-              <button
-                type="button"
-                onClick={() => handleQuickAddNode()}
-                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-xs cursor-pointer transition-colors ml-auto"
-              >
-                {lang === 'zh'
-                  ? `在 T${targetCycle} 打入 [${newNodeLetter || nextAvailableLetter}]`
-                  : `Tag [${newNodeLetter || nextAvailableLetter}] at T${targetCycle}`}
-              </button>
             </div>
+          )}
 
-            {/* Existing Nodes Chips */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200 dark:border-slate-700/60 text-[11px]">
-              <span className="text-slate-500 font-medium">
-                {lang === 'zh'
-                  ? '已有节点 (点击填入连线，点×删除):'
-                  : 'Existing Nodes (click to assign to edge, × to delete):'}
-              </span>
-              {existingNodesList.length > 0 ? (
-                existingNodesList.map((n, idx) => (
-                  <div
-                    key={`${n.tag}_${n.signalId}_${idx}`}
-                    className="inline-flex items-center rounded-md bg-white dark:bg-slate-800 border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 font-mono shadow-2xs overflow-hidden"
+          {/* Tab 2: Node Tagging */}
+          {activeTab === 'nodes' && (
+            <div className="flex flex-col gap-2">
+              {/* Compact Node Tagging Row */}
+              <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60">
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500 font-medium text-[11px]">{lang === 'zh' ? '信号:' : 'Signal:'}</span>
+                  <select
+                    value={activeSignalId}
+                    onChange={(e) => setTargetSignalId(e.target.value)}
+                    className="px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-mono max-w-[120px]"
                   >
+                    {validSignals.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500 font-medium text-[11px]">{lang === 'zh' ? '周期:' : 'Cycle:'}</span>
+                  <div className="flex items-center rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!source || source === n.tag) {
-                          setTarget(n.tag);
-                        } else {
-                          setSource(n.tag);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 hover:bg-purple-50 dark:hover:bg-purple-950/40 cursor-pointer"
-                      title={lang === 'zh'
-                        ? `点击填入: [${n.tag}] 位于 ${n.signalName} @ T${n.cycle}`
-                        : `Click to load: [${n.tag}] at ${n.signalName} @ T${n.cycle}`}
+                      onClick={() => setTargetCycle((c) => Math.max(0, c - 1))}
+                      className="px-1 text-slate-500 hover:text-slate-800 font-mono font-bold cursor-pointer text-xs"
                     >
-                      <span className="font-bold text-xs bg-purple-600 text-white px-1 rounded-xs">{n.tag}</span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                        {n.signalName} @ T{n.cycle}
-                      </span>
+                      -
                     </button>
+                    <span className="px-1 font-mono font-bold text-xs text-purple-700 dark:text-purple-300">
+                      T{targetCycle}
+                    </span>
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onUpdateSignalNode(n.signalId, n.cycle, '');
-                      }}
-                      className="px-1.5 py-0.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer border-l border-purple-200 dark:border-purple-800 transition-colors"
-                      title={lang === 'zh' ? `删除节点 [${n.tag}]` : `Delete node [${n.tag}]`}
+                      onClick={() => setTargetCycle((c) => Math.min(totalCycles - 1, c + 1))}
+                      className="px-1 text-slate-500 hover:text-slate-800 font-mono font-bold cursor-pointer text-xs"
                     >
-                      <X className="w-3 h-3" />
+                      +
                     </button>
                   </div>
-                ))
-              ) : (
-                <span className="text-slate-400">
-                  {lang === 'zh' ? '暂无标记节点' : 'No tagged nodes yet'}
-                </span>
-              )}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500 font-medium text-[11px]">{lang === 'zh' ? '字母:' : 'Tag:'}</span>
+                  <input
+                    type="text"
+                    maxLength={1}
+                    value={newNodeLetter}
+                    onChange={(e) => setNewNodeLetter(e.target.value.toLowerCase())}
+                    className="w-7 px-1 py-0.5 text-center font-mono font-bold rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-0.5 text-[10px]">
+                  {['a', 'b', 'c', 'd'].map((lettr) => (
+                    <button
+                      key={`q_let_${lettr}`}
+                      type="button"
+                      onClick={() => {
+                        setNewNodeLetter(lettr);
+                        handleQuickAddNode(lettr);
+                      }}
+                      className={`w-4.5 h-4.5 flex items-center justify-center rounded border font-mono font-bold cursor-pointer transition-colors ${
+                        newNodeLetter === lettr
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {lettr}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickAddNode()}
+                  className="px-2.5 py-0.5 bg-purple-600 hover:bg-purple-700 text-white rounded font-bold text-xs cursor-pointer transition-colors shrink-0 ml-auto"
+                >
+                  {lang === 'zh' ? `在 T${targetCycle} 打标 [${newNodeLetter || nextAvailableLetter}]` : `Tag [${newNodeLetter || nextAvailableLetter}]`}
+                </button>
+              </div>
+
+              {/* Existing Nodes Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] max-h-32 overflow-y-auto">
+                {existingNodesList.length > 0 ? (
+                  existingNodesList.map((n, idx) => (
+                    <div
+                      key={`${n.tag}_${n.signalId}_${idx}`}
+                      className="inline-flex items-center rounded-md bg-white dark:bg-slate-800 border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 font-mono shadow-2xs overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!source || source === n.tag) {
+                            setTarget(n.tag);
+                          } else {
+                            setSource(n.tag);
+                          }
+                          setActiveTab('edges');
+                        }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 hover:bg-purple-50 dark:hover:bg-purple-950/40 cursor-pointer"
+                        title={lang === 'zh' ? `点击设为连线端点: [${n.tag}]` : `Use [${n.tag}] in edge`}
+                      >
+                        <span className="font-bold text-xs bg-purple-600 text-white px-1 rounded-xs">{n.tag}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          {n.signalName}@T{n.cycle}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUpdateSignalNode(n.signalId, n.cycle, '');
+                        }}
+                        className="px-1 py-0.5 text-slate-400 hover:text-rose-500 cursor-pointer border-l border-purple-200 dark:border-purple-800"
+                        title={lang === 'zh' ? `删除节点 [${n.tag}]` : `Delete node`}
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-slate-400 text-[11px] italic">
+                    {lang === 'zh' ? '暂无打标节点' : 'No tagged nodes yet'}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
   );
 };
+
