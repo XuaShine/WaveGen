@@ -99,9 +99,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [isExportingPng, setIsExportingPng] = useState<boolean>(false);
-  const [showSkinMenu, setShowSkinMenu] = useState<boolean>(false);
-  const skinButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [skinMenuPos, setSkinMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   // Vertical guideline crosshair & setup/hold differential ruler state
   const [showGuideline, setShowGuideline] = useState<boolean>(true);
@@ -246,25 +243,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
     }
   };
 
-  const handleToggleSkinMenu = () => {
-    if (!showSkinMenu && skinButtonRef.current) {
-      const rect = skinButtonRef.current.getBoundingClientRect();
-      const menuWidth = 300;
-      const menuHeight = 380;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const placeAbove = spaceBelow < menuHeight && rect.top > menuHeight;
-
-      let top = placeAbove ? rect.top - menuHeight - 6 : rect.bottom + 6;
-      let left = rect.left;
-      if (left + menuWidth > window.innerWidth - 10) {
-        left = window.innerWidth - menuWidth - 10;
-      }
-      if (left < 10) left = 10;
-      setSkinMenuPos({ top, left });
-    }
-    setShowSkinMenu(!showSkinMenu);
-  };
-
   // Customizable waveform window height mode with localStorage persistence
   const [customHeight, setCustomHeight] = useState<number>(() => {
     try {
@@ -396,7 +374,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
     }
   }, [customHeight]);
 
-  // Handle Drag to Resize Window Height
+  // Handle Drag to Resize Window Height (Smooth 60fps with direct DOM styling and RAF)
   const handleStartResize = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -405,14 +383,36 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
       const initialHeight = viewportRef.current?.clientHeight || customHeight;
       updateHeightMode('custom');
 
+      let currentH = initialHeight;
+      let rafId: number | null = null;
+
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'row-resize';
+
       const onMouseMove = (moveEvent: MouseEvent) => {
         const delta = moveEvent.clientY - startY;
-        const newH = Math.max(140, Math.min(1200, Math.round(initialHeight + delta)));
-        setCustomHeight(newH);
+        currentH = Math.max(140, Math.min(1600, Math.round(initialHeight + delta)));
+
+        if (viewportRef.current) {
+          viewportRef.current.style.height = `${currentH}px`;
+        }
+
+        if (rafId === null) {
+          rafId = requestAnimationFrame(() => {
+            setCustomHeight(currentH);
+            rafId = null;
+          });
+        }
       };
 
       const onMouseUp = () => {
         setIsDragging(false);
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+        }
+        setCustomHeight(currentH);
         window.removeEventListener('mousemove', onMouseMove);
         window.removeEventListener('mouseup', onMouseUp);
       };
@@ -507,8 +507,8 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
         heightMode === 'fill' ? 'h-full flex-1 min-h-0' : ''
       } ${className}`}
     >
-      {/* Top Preview Toolbar: Row 1 (Title, Period Ruler, Text & Typography, Waveform Skin, and Guideline) */}
-      <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs shrink-0 overflow-x-auto">
+      {/* Top Preview Toolbar: Unified Single Row, all controls left-aligned */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs shrink-0 overflow-x-auto select-none">
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="text-xs font-bold tracking-tight text-slate-800 dark:text-slate-200 shrink-0">
@@ -539,27 +539,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             </button>
           )}
 
-          {/* Waveform Skin Selector Button */}
-          {onSkinChange && (
-            <div className="relative">
-              <button
-                ref={skinButtonRef}
-                type="button"
-                onClick={handleToggleSkinMenu}
-                className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer shrink-0"
-                title={lang === 'zh' ? '波形视觉皮肤风格' : 'Waveform visual skin'}
-              >
-                <Palette className="w-3 h-3 text-indigo-500 shrink-0" />
-                <span
-                  className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-slate-600 shrink-0"
-                  style={{ backgroundColor: currentSkinInfo.bgColor }}
-                />
-                <span className="text-[11px] font-semibold">{lang === 'zh' ? currentSkinInfo.name : currentSkinInfo.enName}</span>
-                <ChevronDown className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-              </button>
-            </div>
-          )}
-
           {/* Timing guideline toggle */}
           <button
             type="button"
@@ -573,14 +552,10 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
           >
             <Crosshair className="w-3.5 h-3.5" />
           </button>
-        </div>
-      </div>
 
-      {/* Top Preview Toolbar: Row 2 (Layout Mode Switcher moved here left-aligned, Height Controls, Pin, Auto-fit, Zoom, and Export Buttons) */}
-      <div className="flex items-center justify-between gap-2 px-3 py-1 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-100/70 dark:bg-slate-900/60 shrink-0 overflow-x-auto max-w-full">
-        {/* Left: Layout Switcher & Height controls (Left-aligned as requested) */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Layout Mode Switcher & Split Ratio Presets (Now on Row 2 left-aligned) */}
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 shrink-0 mx-0.5" />
+
+          {/* Layout Mode Switcher & Split Ratio Presets */}
           {onToggleLayoutMode && (
             <div className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs text-[11px] font-semibold shrink-0">
               <button
@@ -777,8 +752,8 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
           </div>
         </div>
 
-        {/* Right: Actions, Zoom, Export buttons */}
-        <div className="flex items-center gap-1 shrink-0 ml-auto">
+        {/* Actions, Zoom, Export buttons - left-aligned next to Fill Bottom */}
+        <div className="flex items-center gap-1 shrink-0">
           {onTogglePin && (
             <button
               onClick={onTogglePin}
@@ -901,7 +876,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
           ...effectiveHeightStyle,
           backgroundColor: currentSkinInfo.bgColor,
         }}
-        className={`relative overflow-auto p-4 md:p-6 transition-[height,background-color] duration-150 select-none skin-${skin} ${
+        className={`relative overflow-auto p-4 md:p-6 select-none skin-${skin} ${
           heightMode === 'fill' ? 'flex-1 min-h-0' : ''
         }`}
       >
@@ -1191,54 +1166,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             </div>
           )}
         </div>
-      )}
-
-      {/* Skin selection floating portal menu */}
-      {showSkinMenu && onSkinChange && typeof document !== 'undefined' && createPortal(
-        <>
-          <div
-            className="fixed inset-0 z-50 bg-black/10 backdrop-blur-2xs"
-            onClick={() => setShowSkinMenu(false)}
-          />
-          <div
-            style={{ top: `${skinMenuPos.top}px`, left: `${skinMenuPos.left}px` }}
-            className="fixed z-50 w-72 max-h-96 overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-2 animate-in fade-in zoom-in-95 duration-100"
-          >
-            <div className="px-2 py-1 mb-1 font-bold text-[11px] text-slate-400 uppercase tracking-wider">
-              {lang === 'zh' ? '选择波形皮肤风格' : 'Select Waveform Skin'}
-            </div>
-            <div className="space-y-1">
-              {AVAILABLE_SKINS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    onSkinChange(s.id);
-                    setShowSkinMenu(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors cursor-pointer text-xs ${
-                    skin === s.id
-                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold'
-                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-600 shrink-0 shadow-2xs"
-                      style={{ backgroundColor: s.bgColor }}
-                    />
-                    <div>
-                      <div className="font-medium truncate">{lang === 'zh' ? s.name : s.enName}</div>
-                      <div className="text-[10px] text-slate-400 truncate">{s.desc}</div>
-                    </div>
-                  </div>
-                  {skin === s.id && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>,
-        document.body
       )}
     </div>
   );

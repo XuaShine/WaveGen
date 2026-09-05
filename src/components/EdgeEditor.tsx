@@ -146,34 +146,6 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
     }
   };
 
-  const handleApplyPreset = (presetArrow: EdgeAnnotation['arrow'], defaultLabel: string) => {
-    let src = source;
-    let tgt = target;
-
-    if (existingNodesList.length >= 2) {
-      src = existingNodesList[0].tag;
-      tgt = existingNodesList[1].tag;
-    } else {
-      src = 'a';
-      tgt = 'b';
-      if (validSignals.length > 0) {
-        onUpdateSignalNode(validSignals[0].id, Math.min(1, totalCycles - 1), 'a');
-        const targetSig = validSignals[1] || validSignals[0];
-        const targetC = validSignals.length > 1 ? Math.min(1, totalCycles - 1) : Math.min(3, totalCycles - 1);
-        onUpdateSignalNode(targetSig.id, targetC, 'b');
-      }
-    }
-
-    const newEdge: EdgeAnnotation = {
-      id: `edge_${Date.now()}`,
-      source: src,
-      target: tgt,
-      arrow: presetArrow,
-      label: defaultLabel,
-    };
-    onChange([...edges, newEdge]);
-  };
-
   return (
     <div
       className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden transition-all ${className}`}
@@ -271,43 +243,6 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
               >
                 <Tag className="w-3 h-3 text-indigo-500" />
                 <span>{lang === 'zh' ? `节点打标 (${existingNodesList.length})` : `Nodes (${existingNodesList.length})`}</span>
-              </button>
-            </div>
-
-            {/* Quick Presets Pills */}
-            <div className="flex items-center gap-1 text-[11px]">
-              <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">{lang === 'zh' ? '预设:' : 'Presets:'}</span>
-              <button
-                type="button"
-                onClick={() => handleApplyPreset('~>', 't_setup ≥ 2.5ns')}
-                className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium text-[10px]"
-                title={lang === 'zh' ? '生成建立时间 (t_setup) 曲线连线' : 'Add t_setup edge'}
-              >
-                + t_setup
-              </button>
-              <button
-                type="button"
-                onClick={() => handleApplyPreset('~>', 't_hold ≥ 1.0ns')}
-                className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium text-[10px]"
-                title={lang === 'zh' ? '生成保持时间 (t_hold) 曲线连线' : 'Add t_hold edge'}
-              >
-                + t_hold
-              </button>
-              <button
-                type="button"
-                onClick={() => handleApplyPreset('<->', lang === 'zh' ? 'Δt 测量' : 'Δt Measure')}
-                className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium text-[10px]"
-                title={lang === 'zh' ? '生成双向测量箭头' : 'Add bidirectional measurement'}
-              >
-                {lang === 'zh' ? '+ 双向标尺' : '+ Bidir'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleApplyPreset('->', 't_cq')}
-                className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400 cursor-pointer font-medium text-[10px]"
-                title={lang === 'zh' ? '生成时钟到输出延时 (t_cq) 箭头' : 'Add t_cq delay edge'}
-              >
-                + t_cq
               </button>
             </div>
           </div>

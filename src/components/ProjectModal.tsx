@@ -575,7 +575,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                   ? '在下方可直接复制 WaveDrom 原生代码，或粘贴外部 WaveJSON 点击“导入并同步”立即反向生成波形参数:'
                   : 'Copy native WaveDrom code, or paste WaveJSON and click "Import & Sync":'}
               </span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px]">WaveJSON v3.8</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px]">WaveJSON 标准</span>
             </div>
 
             <div className="flex-1 min-h-[300px] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">

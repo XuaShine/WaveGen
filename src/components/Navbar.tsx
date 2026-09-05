@@ -140,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               WaveGen
             </h1>
             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-bold">
-              v3.8
+              v1.0
             </span>
           </div>
 

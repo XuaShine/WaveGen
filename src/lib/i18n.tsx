@@ -35,8 +35,8 @@ export const I18N_DICT = {
   project_rename: { zh: '重命名工程', en: 'Rename' },
 
   // Signal Matrix & Toolbar
-  signal_matrix_title: { zh: '信号时序矩阵', en: 'Signal Timing Matrix' },
-  signal_timing_matrix: { zh: '信号时序矩阵', en: 'Signal Matrix' },
+  signal_matrix_title: { zh: '时序波形编辑器', en: 'Signal Waveform Editor' },
+  signal_timing_matrix: { zh: '时序波形编辑器', en: 'Signal Waveform Editor' },
   realtime_waveform: { zh: '波形实时渲染', en: 'Waveform Preview' },
   base_total_cycles: { zh: '总周期', en: 'Cycles' },
   total_cycles: { zh: '总周期', en: 'Cycles' },
