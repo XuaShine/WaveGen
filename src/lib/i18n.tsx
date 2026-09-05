@@ -35,8 +35,8 @@ export const I18N_DICT = {
   project_rename: { zh: '重命名工程', en: 'Rename' },
 
   // Signal Matrix & Toolbar
-  signal_matrix_title: { zh: '时序波形编辑器', en: 'Signal Waveform Editor' },
-  signal_timing_matrix: { zh: '时序波形编辑器', en: 'Signal Waveform Editor' },
+  signal_matrix_title: { zh: '信号总览', en: 'Signal Overview' },
+  signal_timing_matrix: { zh: '信号总览', en: 'Signal Overview' },
   realtime_waveform: { zh: '波形实时渲染', en: 'Waveform Preview' },
   base_total_cycles: { zh: '总周期', en: 'Cycles' },
   total_cycles: { zh: '总周期', en: 'Cycles' },
@@ -87,7 +87,7 @@ export const I18N_DICT = {
   insert_phase_track: { zh: '+ 插入阶段文字轨', en: '+ Insert Phase Track' },
   cdc_calculator: { zh: '⏱️ 跨时钟域对齐计算', en: '⏱️ CDC Alignment Calculator' },
   setup_hold_window: { zh: '📐 建立/保持时间窗口', en: '📐 Setup/Hold Timing Window' },
-  sticky_matrix_title: { zh: '时序矩阵常驻吸顶:', en: 'Pin Matrix to Top:' },
+  sticky_matrix_title: { zh: '信号总览常驻吸顶:', en: 'Pin Overview to Top:' },
   status_enabled: { zh: '已开启', en: 'Enabled' },
   status_disabled: { zh: '已关闭', en: 'Disabled' },
   active_label: { zh: '激活中:', en: 'Active:' },

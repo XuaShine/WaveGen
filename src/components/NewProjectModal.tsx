@@ -39,7 +39,8 @@ interface NewProjectModalProps {
       foot: HeadFootConfig;
       config: DiagramConfig;
       totalCycles: number;
-    }
+    },
+    templateId?: string
   ) => void;
   currentDesign: {
     signals: SignalItem[];
@@ -329,27 +330,35 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
     // Check if custom template was selected
     const customTpl = customTemplates.find((c) => c.id === selectedTemplateId);
     if (customTpl) {
-      onCreateProject(finalName, {
-        signals: JSON.parse(JSON.stringify(customTpl.signals)),
-        edges: JSON.parse(JSON.stringify(customTpl.edges || [])),
-        head: JSON.parse(JSON.stringify(customTpl.head || { tick: 0 })),
-        foot: JSON.parse(JSON.stringify(customTpl.foot || { tock: false })),
-        config: JSON.parse(JSON.stringify(customTpl.config || { hscale: 1, skin: 'default' })),
-        totalCycles: customTpl.totalCycles || 16,
-      });
+      onCreateProject(
+        finalName,
+        {
+          signals: JSON.parse(JSON.stringify(customTpl.signals)),
+          edges: JSON.parse(JSON.stringify(customTpl.edges || [])),
+          head: JSON.parse(JSON.stringify(customTpl.head || { tick: 0 })),
+          foot: JSON.parse(JSON.stringify(customTpl.foot || { tock: false })),
+          config: JSON.parse(JSON.stringify(customTpl.config || { hscale: 1, skin: 'default' })),
+          totalCycles: customTpl.totalCycles || 16,
+        },
+        customTpl.id
+      );
       onClose();
       return;
     }
 
     const tpl = TEMPLATES.find((t) => t.id === selectedTemplateId) || TEMPLATES[0];
-    onCreateProject(finalName, {
-      signals: JSON.parse(JSON.stringify(tpl.signals)),
-      edges: JSON.parse(JSON.stringify(tpl.edges || [])),
-      head: { tick: 0 },
-      foot: { tock: false },
-      config: { hscale: 1, skin: 'default' },
-      totalCycles: tpl.totalCycles,
-    });
+    onCreateProject(
+      finalName,
+      {
+        signals: JSON.parse(JSON.stringify(tpl.signals)),
+        edges: JSON.parse(JSON.stringify(tpl.edges || [])),
+        head: { tick: 0 },
+        foot: { tock: false },
+        config: { hscale: 1, skin: 'default' },
+        totalCycles: tpl.totalCycles,
+      },
+      tpl.id
+    );
     onClose();
   };
 

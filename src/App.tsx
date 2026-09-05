@@ -91,6 +91,35 @@ export default function App() {
 
   const { t, lang, language } = useI18n();
 
+  // Active Template ID Tracking (User Request: 优化重置按钮逻辑，重置不改变模板，只恢复到该模板默认)
+  const [currentTemplateId, setCurrentTemplateId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.templateId) return parsed.templateId;
+      }
+    } catch {}
+    return defaultTemplate.id;
+  });
+
+  const getActiveTemplate = useCallback(
+    (tplId: string): ProtocolTemplate => {
+      const builtin = PROTOCOL_TEMPLATES.find((t) => t.id === tplId);
+      if (builtin) return builtin;
+      try {
+        const raw = localStorage.getItem('wavedrom_custom_templates_v1');
+        if (raw) {
+          const customs: ProtocolTemplate[] = JSON.parse(raw);
+          const found = customs.find((c) => c.id === tplId);
+          if (found) return found;
+        }
+      } catch {}
+      return defaultTemplate;
+    },
+    [defaultTemplate]
+  );
+
   // Signal Row Collapse State Management (User Request: 默认把信号啊节点这些都是折叠起来的要不然默认全展开太占用空间)
   // Map of signalId -> boolean (true: collapsed, false: expanded)
   const [collapsedSignals, setCollapsedSignals] = useState<Record<string, boolean>>(() => {
@@ -600,6 +629,7 @@ export default function App() {
     setAutoSaveStatus('saving');
     try {
       const payload = {
+        templateId: currentTemplateId,
         signals,
         edges,
         head,
@@ -653,12 +683,13 @@ export default function App() {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [signals, edges, head, foot, config, totalCycles]);
+  }, [signals, edges, head, foot, config, totalCycles, currentTemplateId]);
 
   // Immediate save helper (User Request: 打开失焦保存)
   const saveCurrentProjectImmediately = useCallback(() => {
     try {
       const payload = {
+        templateId: currentTemplateId,
         signals,
         edges,
         head,
@@ -672,7 +703,7 @@ export default function App() {
     } catch (e) {
       console.error('Failed to immediately save to localStorage:', e);
     }
-  }, [signals, edges, head, foot, config, totalCycles, projectName]);
+  }, [signals, edges, head, foot, config, totalCycles, projectName, currentTemplateId]);
 
   // User Request: 打开失焦保存 (Enable blur auto-save & tab visibility save)
   useEffect(() => {
@@ -714,7 +745,8 @@ export default function App() {
       foot: HeadFootConfig;
       config: DiagramConfig;
       totalCycles: number;
-    }
+    },
+    templateId?: string
   ) => {
     // 1. Take a safe snapshot of current design before creating new project
     const now = Date.now();
@@ -742,6 +774,9 @@ export default function App() {
     });
 
     // 2. Load the template into active state
+    if (templateId) {
+      setCurrentTemplateId(templateId);
+    }
     setProjectName(newProjName);
     setSignals(templateData.signals);
     setEdges(templateData.edges || []);
@@ -760,6 +795,7 @@ export default function App() {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
+          templateId: templateId || currentTemplateId,
           signals: templateData.signals,
           edges: templateData.edges || [],
           head: templateData.head || { tick: 0 },
@@ -1276,12 +1312,15 @@ export default function App() {
 
   // Template Loader
   const handleSelectTemplate = (tpl: ProtocolTemplate) => {
-    setSignals(tpl.signals);
-    setEdges(tpl.edges || []);
+    recordUndoPoint();
+    setCurrentTemplateId(tpl.id);
+    setSignals(JSON.parse(JSON.stringify(tpl.signals)));
+    setEdges(tpl.edges ? JSON.parse(JSON.stringify(tpl.edges)) : []);
     setTotalCycles(tpl.totalCycles);
-    if (tpl.head) setHead(tpl.head);
-    if (tpl.foot) setFoot(tpl.foot);
-    if (tpl.config) setConfig(tpl.config);
+    if (tpl.head) setHead(JSON.parse(JSON.stringify(tpl.head)));
+    if (tpl.foot) setFoot(JSON.parse(JSON.stringify(tpl.foot)));
+    if (tpl.config) setConfig(JSON.parse(JSON.stringify(tpl.config)));
+    if (tpl.name) setProjectName(tpl.name);
   };
 
   // Project loader from .wavedrom file or snapshot
@@ -1333,7 +1372,7 @@ export default function App() {
     setIsNewProjectConfirmOpen(false);
   };
 
-  // Reset to default
+  // Reset to default (User Request: 优化重置按钮逻辑，重置不改变模板，只恢复到该模板默认)
   const handleResetToDefault = () => {
     setIsResetConfirmOpen(true);
   };
@@ -1342,7 +1381,32 @@ export default function App() {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {}
-    handleSelectTemplate(defaultTemplate);
+    const activeTpl = getActiveTemplate(currentTemplateId);
+
+    // Deep clone the active template data to restore back to this template's defaults
+    setSignals(JSON.parse(JSON.stringify(activeTpl.signals)));
+    setEdges(activeTpl.edges ? JSON.parse(JSON.stringify(activeTpl.edges)) : []);
+    setTotalCycles(activeTpl.totalCycles);
+    setHead(activeTpl.head ? JSON.parse(JSON.stringify(activeTpl.head)) : { text: '' });
+    setFoot(activeTpl.foot ? JSON.parse(JSON.stringify(activeTpl.foot)) : { text: '' });
+    setConfig(activeTpl.config ? JSON.parse(JSON.stringify(activeTpl.config)) : { hscale: 1, skin: 'default' });
+    setProjectName(activeTpl.name || (lang === 'zh' ? '新建波形工程' : 'New Project'));
+
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          templateId: currentTemplateId,
+          signals: activeTpl.signals,
+          edges: activeTpl.edges || [],
+          head: activeTpl.head || { text: '' },
+          foot: activeTpl.foot || { text: '' },
+          config: activeTpl.config || { hscale: 1, skin: 'default' },
+          totalCycles: activeTpl.totalCycles,
+        })
+      );
+    } catch {}
+
     setHistoryPast([]);
     setHistoryFuture([]);
     setAutoFitTrigger((prev) => prev + 1);
@@ -1609,9 +1673,16 @@ export default function App() {
                 isMatrixPinned
                   ? layoutMode === 'split'
                     ? 'sticky top-0 z-20 shadow-md backdrop-blur-md bg-white/95 dark:bg-slate-900/95 border-blue-400 dark:border-blue-600 ring-1 ring-blue-400/30'
-                    : 'sticky top-0 z-20 shadow-md backdrop-blur-md bg-white/95 dark:bg-slate-900/95 border-blue-400 dark:border-blue-600 ring-1 ring-blue-400/30'
+                    : 'sticky z-35 shadow-md backdrop-blur-md bg-white/95 dark:bg-slate-900/95 border-blue-400 dark:border-blue-600 ring-1 ring-blue-400/30'
                   : ''
               }`}
+              style={
+                isMatrixPinned && layoutMode === 'stacked'
+                  ? {
+                      top: isPinned ? `${49 + previewHeight + 8}px` : '49px',
+                    }
+                  : undefined
+              }
             >
               {/* Top Row: Title, Total Cycles, Folding, Density, and Core Operations */}
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1909,6 +1980,30 @@ export default function App() {
                     <span>{globalBrush ? `${lang === 'zh' ? '画笔' : 'Brush'}[${globalBrush}]` : t('continuous_brush')}</span>
                   </button>
 
+                  {/* Standalone Sticky Matrix Pin Button (User Request: 上下布局下把高级工具中的常驻吸顶拿出来单独做一个按钮) */}
+                  {layoutMode === 'stacked' && (
+                    <button
+                      type="button"
+                      onClick={handleToggleMatrixPin}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all border ${
+                        isMatrixPinned
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-2xs ring-2 ring-blue-400/30'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                      }`}
+                      title={
+                        isMatrixPinned
+                          ? (lang === 'zh' ? '信号总览常驻吸顶: 已开启 (点击取消吸顶)' : 'Sticky Pin: ON (Click to unpin)')
+                          : (lang === 'zh' ? '信号总览常驻吸顶: 已关闭 (点击固定在页面顶部)' : 'Sticky Pin: OFF (Click to pin to top)')
+                      }
+                    >
+                      <Pin className={`w-3.5 h-3.5 ${isMatrixPinned ? 'rotate-45 text-white' : 'text-blue-500'}`} />
+                      <span>{lang === 'zh' ? '常驻吸顶' : 'Sticky Pin'}</span>
+                      {isMatrixPinned && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
+                      )}
+                    </button>
+                  )}
+
                   {/* Unified Secondary Tools Dropdown (Replaces scattered cluttered buttons) */}
                   <div className="relative">
                     <button
@@ -1919,7 +2014,7 @@ export default function App() {
                           ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
                           : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
                       }`}
-                      title={lang === 'zh' ? "更多高级辅助工具 (阶段文字轨、跨时钟域计算器、标尺设置、吸顶等)" : "More tools (Phase tracks, CDC calculator, sticky headers)"}
+                      title={lang === 'zh' ? "更多高级辅助工具 (阶段文字轨、跨时钟域计算器、标尺设置等)" : "More tools (Phase tracks, CDC calculator, timing window)"}
                     >
                       <Wrench className="w-3.5 h-3.5 text-purple-500" />
                       <span>{t('advanced_tools')}</span>
@@ -1977,20 +2072,22 @@ export default function App() {
                           <span>{t('setup_hold_window')}</span>
                         </button>
 
-                        <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between px-2 py-1">
-                          <span className="text-slate-500">{t('sticky_matrix_title')}</span>
-                          <button
-                            type="button"
-                            onClick={handleToggleMatrixPin}
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer border ${
-                              isMatrixPinned
-                                ? 'bg-blue-100 text-blue-800 border-blue-300'
-                                : 'bg-slate-100 text-slate-600 border-slate-200'
-                            }`}
-                          >
-                            {isMatrixPinned ? t('status_enabled') : t('status_disabled')}
-                          </button>
-                        </div>
+                        {layoutMode === 'split' && (
+                          <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between px-2 py-1">
+                            <span className="text-slate-500">{t('sticky_matrix_title')}</span>
+                            <button
+                              type="button"
+                              onClick={handleToggleMatrixPin}
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer border ${
+                                isMatrixPinned
+                                  ? 'bg-blue-100 text-blue-800 border-blue-300'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              {isMatrixPinned ? t('status_enabled') : t('status_disabled')}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2808,12 +2905,14 @@ export default function App() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                  {lang === 'zh' ? '确认重置波形？' : 'Reset Waveform?'}
-                </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   {lang === 'zh'
-                    ? '重置将清空当前所有信号与配置，并恢复为默认的基础 SPI 模板。未保存的修改将会丢失。'
-                    : 'This will reset all signals and configuration to the default SPI template. Unsaved changes will be lost.'}
+                    ? `确认恢复【${getActiveTemplate(currentTemplateId).name}】默认？`
+                    : `Reset [${getActiveTemplate(currentTemplateId).name}] to Default?`}
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  {lang === 'zh'
+                    ? `重置将放弃当前未保存的修改，恢复到当前模板【${getActiveTemplate(currentTemplateId).name}】的初始默认状态。模板不会切换。`
+                    : `This will revert all changes back to the default state of [${getActiveTemplate(currentTemplateId).name}]. The template will not change.`}
                 </p>
               </div>
             </div>

@@ -368,7 +368,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={onResetToDefault}
           className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 transition-colors cursor-pointer"
-          title={language === 'zh' ? '重置波形 (清空并加载基础模板)' : 'Reset diagram to default'}
+          title={language === 'zh' ? '恢复当前模板默认配置 (不改变模板)' : 'Reset to current template defaults'}
         >
           <RotateCcw className="w-4 h-4" />
         </button>
