@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ChevronUp,
   ChevronDown,
@@ -176,8 +176,16 @@ export const SignalRow: React.FC<SignalRowProps> = ({
 
   const [showSettings, setShowSettings] = useState(false);
   const [showDataEditor, setShowDataEditor] = useState(false);
-  // 默认折叠节点打标轨道，避免默认全展开占用大量垂直高度
-  const [showNodeTrack, setShowNodeTrack] = useState(false);
+  // 当信号包含节点时 (如复制生成的新信号或已标注节点的信号)，自动展开节点打标轨道，确保节点清晰可见
+  const hasNodes = Boolean(signal.node && signal.node.replace(/[.\s]/g, '').length > 0);
+  const [showNodeTrack, setShowNodeTrack] = useState(hasNodes);
+
+  // 当复制、导入或修改使得信号包含节点时，自动展开节点轨道
+  useEffect(() => {
+    if (signal.node && signal.node.replace(/[.\s]/g, '').length > 0) {
+      setShowNodeTrack(true);
+    }
+  }, [signal.node]);
   const [showDirectWaveInput, setShowDirectWaveInput] = useState(false);
   const [autoHold, setAutoHold] = useState(true);
   const [localCopiedSymbol, setLocalCopiedSymbol] = useState<string | null>(null);
@@ -577,17 +585,29 @@ export const SignalRow: React.FC<SignalRowProps> = ({
 
           {/* Compact Waveform snippet when collapsed */}
           {isCollapsed && (
-            <div
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-600 dark:text-slate-300 cursor-pointer transition-colors"
-              onClick={toggleCollapse}
-              title={lang === 'zh' ? '点击展开查看波形网格' : 'Click to expand waveform grid'}
-            >
-              <span className="font-mono text-[11px] font-bold text-blue-600 dark:text-blue-400 max-w-[140px] sm:max-w-[220px] truncate">
-                {signal.wave}
-              </span>
-              <span className="text-[10px] text-slate-400 select-none">
-                ({effectiveCycles}{lang === 'zh' ? '拍' : ' cycles'})
-              </span>
+            <div className="flex items-center gap-1">
+              <div
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-600 dark:text-slate-300 cursor-pointer transition-colors"
+                onClick={toggleCollapse}
+                title={lang === 'zh' ? '点击展开查看波形网格' : 'Click to expand waveform grid'}
+              >
+                <span className="font-mono text-[11px] font-bold text-blue-600 dark:text-blue-400 max-w-[140px] sm:max-w-[220px] truncate">
+                  {signal.wave}
+                </span>
+                <span className="text-[10px] text-slate-400 select-none">
+                  ({effectiveCycles}{lang === 'zh' ? '拍' : ' cycles'})
+                </span>
+              </div>
+              {activeNodesCount > 0 && (
+                <div
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/70 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-[10px] font-mono font-bold cursor-pointer select-none"
+                  onClick={toggleCollapse}
+                  title={lang === 'zh' ? `包含节点标记: ${signal.node} (点击展开查看)` : `Nodes: ${signal.node}`}
+                >
+                  <Tag className="w-2.5 h-2.5 text-purple-600" />
+                  <span>{activeNodesCount}{lang === 'zh' ? '节点' : ' nodes'}</span>
+                </div>
+              )}
             </div>
           )}
 

@@ -174,12 +174,18 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.head) return parsed.head;
+        if (parsed.head) {
+          // If stored text was the legacy verbose default, clear it to eliminate top blank space
+          if (parsed.head.text === '数字时序设计 (Timing Diagram)') {
+            return { ...parsed.head, text: '' };
+          }
+          return parsed.head;
+        }
       }
     } catch (e) {
       console.warn('Could not load saved head', e);
     }
-    return defaultTemplate.head || { text: '数字时序设计 (Timing Diagram)', tick: 0, every: 1 };
+    return defaultTemplate.head || { text: '', tick: 0, every: 1 };
   });
 
   const [foot, setFoot] = useState<HeadFootConfig>(() => {
@@ -383,6 +389,64 @@ export default function App() {
     setEdgeEditorPosition(pos);
     try {
       localStorage.setItem('wavedrom_edge_editor_position', pos);
+    } catch {}
+  };
+
+  // Coordinated panel heights for WaveformPreview and EdgeEditor in right pane
+  const [edgeEditorHeight, setEdgeEditorHeight] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('wavedrom_edge_editor_height');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val) && val >= 160 && val <= 900) return val;
+      }
+    } catch {}
+    return 280;
+  });
+  const [isEdgeEditorOpen, setIsEdgeEditorOpen] = useState<boolean>(true);
+  const rightPaneRef = useRef<HTMLDivElement>(null);
+
+  const handleEdgeEditorHeightChange = (newHeight: number) => {
+    setEdgeEditorHeight(newHeight);
+    try {
+      localStorage.setItem('wavedrom_edge_editor_height', String(newHeight));
+    } catch {}
+  };
+
+  // When waveform preview height is adjusted by user (via -, +, presets, or handle), adapt edge editor height
+  const handleWaveformHeightChange = (newWaveH: number, totalPreviewH?: number) => {
+    if (!rightPaneRef.current) return;
+    const totalH = rightPaneRef.current.clientHeight;
+    const waveH = totalPreviewH || (newWaveH + 84);
+    // Calculate new EdgeEditor height so both panels completely fill the right container
+    const targetEdgeH = Math.max(160, Math.min(totalH - 180, totalH - waveH - 6));
+    setEdgeEditorHeight(targetEdgeH);
+    setIsEdgeEditorOpen(true);
+    try {
+      localStorage.setItem('wavedrom_edge_editor_height', String(targetEdgeH));
+    } catch {}
+  };
+
+  // When waveform preview toggles fill mode, collapse edge editor to bottom capsule or restore
+  const handleToggleWaveformFill = (isFill: boolean) => {
+    if (isFill) {
+      setIsEdgeEditorOpen(false);
+    } else {
+      setIsEdgeEditorOpen(true);
+    }
+  };
+
+  // Double click splitter to reset 50/50 balance between waveform and edge editor
+  const handleResetBalanceHeight = () => {
+    if (!rightPaneRef.current) {
+      setEdgeEditorHeight(280);
+      return;
+    }
+    const totalH = rightPaneRef.current.clientHeight;
+    const balancedH = Math.max(180, Math.round(totalH * 0.45));
+    setEdgeEditorHeight(balancedH);
+    try {
+      localStorage.setItem('wavedrom_edge_editor_height', String(balancedH));
     } catch {}
   };
   // Sticky preview state: When pinned, scrolling down keeps the waveform visible at top
@@ -1017,20 +1081,64 @@ export default function App() {
     setDragOverSignalIndex(null);
   };
 
+  // Generate globally unique node tags for duplicate signals to prevent WaveDrom tag collision & invisible nodes
+  // Note: WaveDrom's renderer requires lowercase letters (a-z) and numbers (0-9) to render nodes and arrows properly
+  const ALPHABET_NODES = 'abcdefghijklmnopqrstuvwxyz0123456789'.split('');
+
+  const generateUniqueNodeString = (originalNode: string | undefined, allSignals: SignalItem[]): string | undefined => {
+    if (!originalNode) return undefined;
+
+    // Collect all currently used node letters across all existing signals (normalized to lowercase)
+    const usedLetters = new Set<string>();
+    allSignals.forEach((s) => {
+      if (s.node) {
+        for (const ch of s.node) {
+          if (ch && ch !== '.' && ch !== ' ') {
+            usedLetters.add(ch.toLowerCase());
+          }
+        }
+      }
+    });
+
+    let hasNodes = false;
+    const chars = originalNode.split('');
+    for (let i = 0; i < chars.length; i++) {
+      const ch = chars[i];
+      if (ch && ch !== '.' && ch !== ' ') {
+        hasNodes = true;
+        // Pick next unused lowercase letter from alphabet
+        const nextLetter = ALPHABET_NODES.find((letter) => !usedLetters.has(letter)) || 'x';
+        usedLetters.add(nextLetter);
+        chars[i] = nextLetter;
+      }
+    }
+
+    return hasNodes ? chars.join('') : undefined;
+  };
+
   const handleDuplicateSignal = (index: number) => {
     recordUndoPoint();
+    const newId = `sig_${Date.now()}_copy`;
+
     setSignals((prev) => {
       const next = [...prev];
       const original = next[index];
       const copy: SignalItem = {
         ...original,
-        id: `sig_${Date.now()}_copy`,
+        id: newId,
         name: `${original.name}_copy`,
         data: original.data ? [...original.data] : undefined,
+        node: undefined, // Clear nodes on duplicated signal as requested
       };
       next.splice(index + 1, 0, copy);
       return next;
     });
+
+    // Automatically expand the duplicated signal so user immediately sees wave
+    setCollapsedSignals((prev) => ({
+      ...prev,
+      [newId]: false,
+    }));
   };
 
   const handleDeleteSignal = (index: number) => {
@@ -1724,12 +1832,12 @@ export default function App() {
             {/* Signal Timing Matrix - Streamlined Master Control Bar */}
             <div
               id="signal-matrix-header"
-              className={`px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col gap-1.5 transition-all ${
+              className={`px-3 py-2 rounded-xl transition-all flex flex-col gap-1.5 ${
                 isMatrixPinned
                   ? layoutMode === 'split'
-                    ? 'sticky top-0 z-20 shadow-md backdrop-blur-md bg-white/95 dark:bg-slate-900/95 border-blue-400 dark:border-blue-600 ring-1 ring-blue-400/30'
-                    : 'sticky z-[35] shadow-md backdrop-blur-md bg-white/95 dark:bg-slate-900/95 border-blue-400 dark:border-blue-600 ring-1 ring-blue-400/30'
-                  : ''
+                    ? 'sticky top-0 z-30 shadow-[0_6px_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] bg-white dark:bg-slate-900 border border-blue-400/80 dark:border-blue-500/80 ring-1 ring-blue-400/20'
+                    : 'sticky z-30 shadow-[0_6px_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] bg-white dark:bg-slate-900 border border-blue-400/80 dark:border-blue-500/80 ring-1 ring-blue-400/20'
+                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs'
               }`}
               style={
                 isMatrixPinned && layoutMode === 'stacked'
@@ -1906,16 +2014,16 @@ export default function App() {
                 </div>
 
                 {/* Right Action Tools Group */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   {/* Add Signal Group Button */}
                   <button
                     type="button"
                     onClick={() => setShowCreateGroupModal(true)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
+                    className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs shrink-0"
                     title={lang === 'zh' ? "新建信号分组（波形左侧将以中括号包裹同组成员）" : "Create signal group"}
                   >
                     <FolderPlus className="w-3.5 h-3.5 text-blue-500" />
-                    <span>{t('add_group')}</span>
+                    <span className="hidden sm:inline">{t('add_group')}</span>
                   </button>
 
                   {/* Add Signal Dropdown (With 1-click classification templates) */}
@@ -2046,7 +2154,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setShowContinuousBrush(!showContinuousBrush)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all border ${
+                    className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all border shrink-0 ${
                       showContinuousBrush || globalBrush
                         ? 'bg-amber-500 text-white border-amber-500 shadow-2xs ring-2 ring-amber-400/40'
                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
@@ -2054,15 +2162,15 @@ export default function App() {
                     title={lang === 'zh' ? "展开/收起连续绘制画笔调色板 (选定后拖拽鼠标即可连续涂刷)" : "Toggle continuous brush toolbar"}
                   >
                     <Paintbrush className="w-3.5 h-3.5" />
-                    <span>{globalBrush ? `${lang === 'zh' ? '画笔' : 'Brush'}[${globalBrush}]` : t('continuous_brush')}</span>
+                    <span className="hidden md:inline">{globalBrush ? `${lang === 'zh' ? '画笔' : 'Brush'}[${globalBrush}]` : t('continuous_brush')}</span>
                   </button>
 
                   {/* Unified Secondary Tools Dropdown (Replaces scattered cluttered buttons) */}
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <button
                       type="button"
                       onClick={() => setShowToolsDropdown(!showToolsDropdown)}
-                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all border ${
+                      className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all border ${
                         showToolsDropdown
                           ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
                           : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
@@ -2070,7 +2178,7 @@ export default function App() {
                       title={lang === 'zh' ? "更多高级辅助工具 (阶段文字轨、跨时钟域计算器、标尺设置等)" : "More tools (Phase tracks, CDC calculator, timing window)"}
                     >
                       <Wrench className="w-3.5 h-3.5 text-purple-500" />
-                      <span>{t('advanced_tools')}</span>
+                      <span className="hidden sm:inline">{t('advanced_tools')}</span>
                       <ChevronDown className={`w-3 h-3 transition-transform ${showToolsDropdown ? 'rotate-180' : ''}`} />
                     </button>
 
@@ -2364,6 +2472,34 @@ export default function App() {
                     ))}
                 </div>
               </div>
+
+              {/* Global Cycle Scale Ruler (Suggestion 2: Always visible on sticky overview, interactive hover/lock) */}
+              <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] select-none">
+                <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-full">
+                  <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0 px-1 py-0.5 bg-blue-50 dark:bg-blue-950/60 rounded border border-blue-200 dark:border-blue-900/50">
+                    {lang === 'zh' ? '时钟标尺' : 'Scale'}:
+                  </span>
+                  {Array.from({ length: totalCycles }).map((_, cIdx) => (
+                    <button
+                      key={`matrix_cycle_${cIdx}`}
+                      type="button"
+                      onClick={() => setLockedCycle(lockedCycle === cIdx ? null : cIdx)}
+                      onMouseEnter={() => setHoveredCycle(cIdx)}
+                      onMouseLeave={() => setHoveredCycle(null)}
+                      className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold cursor-pointer transition-colors shrink-0 ${
+                        lockedCycle === cIdx
+                          ? 'bg-blue-600 text-white'
+                          : hoveredCycle === cIdx
+                          ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                      }`}
+                      title={lang === 'zh' ? `第 T${cIdx} 拍 (点击锁定为基准沿)` : `Cycle T${cIdx} (Click to lock reference edge)`}
+                    >
+                      T{cIdx}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* List of Signal Rows with Visual Grouping Brackets (Compact Gap) */}
@@ -2631,16 +2767,18 @@ export default function App() {
             </div>
           )}
 
-          {/* Right Column: Rock-solid Real-time WaveDrom Preview (Adaptive height with independent scrolling) */}
+          {/* Right Column: Rock-solid Real-time WaveDrom Preview & Screen-Docked Edge Editor */}
           {layoutMode === 'split' && (
             <div
-              className="flex flex-col gap-2 shrink-0 min-w-0 w-full lg:w-auto h-full min-h-0 flex-1 overflow-y-auto pb-1"
+              ref={rightPaneRef}
+              className="flex flex-col gap-1.5 shrink-0 min-w-0 w-full lg:w-auto h-full min-h-0 flex-1 overflow-hidden"
               style={{
                 width: `${rightPanePercent}%`,
                 maxWidth: `${rightPanePercent}%`,
               }}
             >
-              <div className="min-h-0 flex flex-col shrink-0">
+              {/* Waveform Preview Area: Takes remaining vertical space with internal scrolling & auto-fit */}
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 <WaveformPreview
                   waveJson={currentWaveJson}
                   skin={config.skin || 'default'}
@@ -2657,7 +2795,8 @@ export default function App() {
                   lockedCycle={lockedCycle}
                   onLockCycleChange={setLockedCycle}
                   totalCycles={totalCycles}
-                  fillHeight={false}
+                  fillHeight={true}
+                  className="h-full flex-1"
                   layoutMode="split"
                   onToggleLayoutMode={() => {
                     setLayoutMode('stacked');
@@ -2668,12 +2807,14 @@ export default function App() {
                   }}
                   splitRatio={rightPanePercent}
                   onSetSplitRatio={handleSetRatioPreset}
+                  onHeightChange={handleWaveformHeightChange}
+                  onToggleFillHeight={handleToggleWaveformFill}
                 />
               </div>
 
-              {/* Edge / Arrow Annotations Editor at bottom of right column */}
+              {/* Edge / Arrow Annotations Editor: Permanently docked at screen bottom, top adjusts via drag */}
               {edgeEditorPosition === 'right_bottom' && (
-                <div className="shrink-0 pt-0.5">
+                <div className="shrink-0 w-full z-20 pb-0.5">
                   <EdgeEditor
                     edges={edges}
                     signals={signals}
@@ -2688,6 +2829,11 @@ export default function App() {
                     onOpenSetupHoldModal={() => setIsSetupHoldModalOpen(true)}
                     position={edgeEditorPosition}
                     onChangePosition={handleEdgeEditorPositionChange}
+                    height={edgeEditorHeight}
+                    onHeightChange={handleEdgeEditorHeightChange}
+                    isOpen={isEdgeEditorOpen}
+                    onToggleOpen={setIsEdgeEditorOpen}
+                    onResetBalanceHeight={handleResetBalanceHeight}
                   />
                 </div>
               )}

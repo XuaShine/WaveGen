@@ -58,6 +58,8 @@ interface WaveformPreviewProps {
   onToggleLayoutMode?: () => void;
   splitRatio?: number;
   onSetSplitRatio?: (ratio: number) => void;
+  onHeightChange?: (height: number, totalPreviewHeight?: number) => void;
+  onToggleFillHeight?: (isFill: boolean) => void;
 }
 
 const HEIGHT_PRESETS = [
@@ -92,10 +94,13 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
   onToggleLayoutMode,
   splitRatio,
   onSetSplitRatio,
+  onHeightChange,
+  onToggleFillHeight,
 }) => {
   const { t, lang } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const previewRootRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState<number>(1);
   const [copiedSvg, setCopiedSvg] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -292,32 +297,65 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
   };
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [isAutoFit, setIsAutoFit] = useState<boolean>(false);
+  const [isAutoFit, setIsAutoFit] = useState<boolean>(true);
+  const [isRendering, setIsRendering] = useState<boolean>(false);
 
-  const fitToWidth = useCallback(() => {
+  // User Request: 自动调节展示范围，波形自动上下居中展示核心内容，消除顶部多余空白
+  const fitToView = useCallback((containHeight = true) => {
     if (!containerRef.current || !viewportRef.current) return;
     const svg = containerRef.current.querySelector('svg');
     if (!svg) return;
 
     let svgNaturalWidth = 0;
+    let svgNaturalHeight = 0;
     if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width > 0) {
       svgNaturalWidth = svg.viewBox.baseVal.width;
+      svgNaturalHeight = svg.viewBox.baseVal.height;
     } else {
       const widthAttr = parseFloat(svg.getAttribute('width') || '0');
+      const heightAttr = parseFloat(svg.getAttribute('height') || '0');
       svgNaturalWidth = widthAttr > 0 ? widthAttr : svg.scrollWidth;
+      svgNaturalHeight = heightAttr > 0 ? heightAttr : svg.scrollHeight;
     }
 
-    const viewportWidth = viewportRef.current.clientWidth - 48;
-    if (svgNaturalWidth > 0 && viewportWidth > 0) {
-      const targetZoom = Number((viewportWidth / svgNaturalWidth).toFixed(2));
-      const boundedZoom = Math.min(1.2, Math.max(0.18, targetZoom));
+    // Precise padding allowance (tight minimal margins so waveform fills preview and centers nicely)
+    const viewportWidth = Math.max(80, viewportRef.current.clientWidth - 16);
+    const viewportHeight = Math.max(80, viewportRef.current.clientHeight - 16);
+
+    if (svgNaturalWidth > 0 && svgNaturalHeight > 0 && viewportWidth > 0 && viewportHeight > 0) {
+      const zoomW = viewportWidth / svgNaturalWidth;
+      const zoomH = viewportHeight / svgNaturalHeight;
+      // When containHeight is true, adapt to fit BOTH all signals vertically and all cycles horizontally!
+      const targetZoom = containHeight ? Math.min(zoomW, zoomH) : zoomW;
+      const boundedZoom = Math.min(1.6, Math.max(0.2, Number(targetZoom.toFixed(2))));
       setZoom(boundedZoom);
+
+      // Smoothly center the core content vertically and horizontally in the visible viewport
+      const centerScroll = () => {
+        if (viewportRef.current) {
+          const vp = viewportRef.current;
+          const targetTop = Math.max(0, Math.round((vp.scrollHeight - vp.clientHeight) / 2));
+          const targetLeft = Math.max(0, Math.round((vp.scrollWidth - vp.clientWidth) / 2));
+          vp.scrollTo({
+            top: targetTop,
+            left: targetLeft,
+            behavior: 'smooth',
+          });
+        }
+      };
+      requestAnimationFrame(centerScroll);
+      setTimeout(centerScroll, 60);
     }
   }, []);
+
+  const fitToWidth = useCallback(() => {
+    fitToView(false);
+  }, [fitToView]);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
+    setIsRendering(true);
     const res = renderWaveToElement(waveJson, containerRef.current, skin);
     if (!res.success) {
       setRenderError(res.error || 'Failed to render WaveDrom');
@@ -326,6 +364,8 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
       updateSvgMetrics();
       setTimeout(updateSvgMetrics, 50);
     }
+    const timer = setTimeout(() => setIsRendering(false), 120);
+    return () => clearTimeout(timer);
   }, [waveJson, skin, updateSvgMetrics]);
 
   useEffect(() => {
@@ -339,31 +379,54 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
     if (autoFitTrigger && autoFitTrigger > 0) {
       setIsAutoFit(true);
       const timer = setTimeout(() => {
-        fitToWidth();
+        fitToView(true);
       }, 60);
       return () => clearTimeout(timer);
     }
-  }, [autoFitTrigger, fitToWidth]);
+  }, [autoFitTrigger, fitToView]);
 
-  // Keep fitted if isAutoFit is enabled
+  // Keep fitted adaptively if isAutoFit is enabled
   useEffect(() => {
     if (isAutoFit) {
       const timer = setTimeout(() => {
-        fitToWidth();
+        fitToView(true);
       }, 60);
       return () => clearTimeout(timer);
     }
-  }, [waveJson, skin, isAutoFit, fitToWidth]);
+  }, [waveJson, skin, isAutoFit, fitToView]);
 
-  // Re-fit on window resize when isAutoFit is on
+  // Re-fit on window resize or viewport container resize when isAutoFit is on
   useEffect(() => {
     if (!isAutoFit) return;
     const handleResize = () => {
-      fitToWidth();
+      fitToView(true);
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isAutoFit, fitToWidth]);
+
+    // Watch viewport container dimensions directly (handles splitter drag, edge editor drag, etc.)
+    let ro: ResizeObserver | null = null;
+    if (viewportRef.current && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        fitToView(true);
+      });
+      ro.observe(viewportRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      ro?.disconnect();
+    };
+  }, [isAutoFit, fitToView]);
+
+  // Re-fit adaptively when customHeight or heightMode changes
+  useEffect(() => {
+    if (isAutoFit) {
+      const timer = setTimeout(() => {
+        fitToView(true);
+      }, 70);
+      return () => clearTimeout(timer);
+    }
+  }, [customHeight, heightMode, isAutoFit, fitToView]);
 
   // Persist custom height changes
   useEffect(() => {
@@ -400,6 +463,10 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
         if (rafId === null) {
           rafId = requestAnimationFrame(() => {
             setCustomHeight(currentH);
+            const totalComponentH = previewRootRef.current
+              ? previewRootRef.current.getBoundingClientRect().height
+              : currentH + 84;
+            onHeightChange?.(currentH, totalComponentH);
             rafId = null;
           });
         }
@@ -413,6 +480,10 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
           cancelAnimationFrame(rafId);
         }
         setCustomHeight(currentH);
+        const totalComponentH = previewRootRef.current
+          ? previewRootRef.current.getBoundingClientRect().height
+          : currentH + 84;
+        onHeightChange?.(currentH, totalComponentH);
         window.removeEventListener('mousemove', onMouseMove);
         window.removeEventListener('mouseup', onMouseUp);
       };
@@ -492,10 +563,14 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
   const handleCycleNextHeight = () => {
     updateHeightMode('custom');
     const presetValues = HEIGHT_PRESETS.map((p) => p.value);
-    const currentH = heightMode === 'custom' ? customHeight : (viewportRef.current?.clientHeight || 320);
+    const currentH = viewportRef.current?.clientHeight || (heightMode === 'custom' ? customHeight : 320);
     // Find next preset strictly greater than current, or wrap around
     const nextVal = presetValues.find((v) => v > currentH) ?? presetValues[0];
     setCustomHeight(nextVal);
+    onHeightChange?.(nextVal);
+    if (isAutoFit) {
+      setTimeout(() => fitToView(true), 60);
+    }
   };
 
   const currentSkinInfo = getSkinInfo(skin);
@@ -504,15 +579,21 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
   // Compute effective render viewport height style
   const effectiveHeightStyle: React.CSSProperties =
     heightMode === 'fill'
-      ? { height: '100%', flex: 1, minHeight: '200px' }
+      ? { height: '100%', flex: 1, minHeight: '140px' }
       : isCompact
       ? { height: '180px', minHeight: '160px', maxHeight: '180px' }
       : heightMode === 'auto'
       ? { height: 'auto', minHeight: '180px', maxHeight: '85vh' }
       : { height: `${customHeight}px`, minHeight: '140px', maxHeight: `${customHeight}px` };
 
+  // Smooth animation transition style (Suggestion 1: smooth easing except during active drag)
+  const viewportTransitionStyle: React.CSSProperties = isDragging
+    ? { transition: 'none' }
+    : { transition: 'height 240ms cubic-bezier(0.16, 1, 0.3, 1), max-height 240ms cubic-bezier(0.16, 1, 0.3, 1)' };
+
   return (
     <div
+      ref={previewRootRef}
       className={`flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden ${
         heightMode === 'fill' ? 'h-full flex-1 min-h-0' : ''
       } ${className}`}
@@ -617,10 +698,11 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const currentH = heightMode === 'custom' ? customHeight : (viewportRef.current?.clientHeight || 340);
+                  const currentH = viewportRef.current?.clientHeight || (heightMode === 'custom' ? customHeight : 340);
                   const nextH = Math.max(140, currentH - 40);
                   updateHeightMode('custom');
                   setCustomHeight(nextH);
+                  onHeightChange?.(nextH);
                 }}
                 className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 cursor-pointer select-none rounded-l-md"
                 title={lang === 'zh' ? '高度 -40px' : 'Decrease height (-40px)'}
@@ -635,23 +717,30 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
                 title={
                   lang === 'zh'
                     ? `点击直接切换高度预设 (当前: ${
-                        heightMode === 'fill' ? t('height_fill') : heightMode === 'auto' ? t('height_auto') : `${customHeight}px`
+                        heightMode === 'fill' ? t('height_fill') : heightMode === 'auto' ? t('height_auto') : `${viewportRef.current?.clientHeight || customHeight}px`
                       })`
                     : `Click to switch to next height preset`
                 }
               >
                 <MoveVertical className="w-2.5 h-2.5 text-blue-500 shrink-0" />
                 <span className="font-mono whitespace-nowrap font-bold">
-                  {heightMode === 'fill' ? t('height_fill') : heightMode === 'auto' ? t('height_auto') : `${customHeight}px`}
+                  {viewportRef.current?.clientHeight
+                    ? `${viewportRef.current.clientHeight}px`
+                    : heightMode === 'fill'
+                    ? t('height_fill')
+                    : heightMode === 'auto'
+                    ? t('height_auto')
+                    : `${customHeight}px`}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  const currentH = heightMode === 'custom' ? customHeight : (viewportRef.current?.clientHeight || 340);
+                  const currentH = viewportRef.current?.clientHeight || (heightMode === 'custom' ? customHeight : 340);
                   const nextH = Math.min(1600, currentH + 40);
                   updateHeightMode('custom');
                   setCustomHeight(nextH);
+                  onHeightChange?.(nextH);
                 }}
                 className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 cursor-pointer select-none rounded-r-md"
                 title={lang === 'zh' ? '高度 +40px' : 'Increase height (+40px)'}
@@ -663,13 +752,17 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
             {/* Direct Fill Bottom Toggle Button */}
             <button
               type="button"
-              onClick={() => updateHeightMode(heightMode === 'fill' ? 'custom' : 'fill')}
+              onClick={() => {
+                const nextMode = heightMode === 'fill' ? 'custom' : 'fill';
+                updateHeightMode(nextMode);
+                onToggleFillHeight?.(nextMode === 'fill');
+              }}
               className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all cursor-pointer shadow-2xs shrink-0 ${
                 heightMode === 'fill'
                   ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
               }`}
-              title={heightMode === 'fill' ? (lang === 'zh' ? '点击退出撑满，恢复自定义高度' : 'Click to exit fill mode') : (lang === 'zh' ? '点击撑满底部空间' : 'Fill height')}
+              title={heightMode === 'fill' ? (lang === 'zh' ? '点击退出撑满，恢复与标注面板协同' : 'Click to exit fill mode') : (lang === 'zh' ? '点击撑满底部空间 (标注面板吸底收起)' : 'Fill height (capsule annotations)')}
             >
               <span>{t('height_fill')}</span>
             </button>
@@ -697,19 +790,27 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
               const next = !isAutoFit;
               setIsAutoFit(next);
               if (next) {
-                fitToWidth();
-              } else {
-                setZoom(1);
+                fitToView(true);
               }
             }}
-            className={`p-1 rounded-md text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border transition-all cursor-pointer shadow-2xs shrink-0 ${
               isAutoFit
-                ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-1 ring-blue-400/40'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
             }`}
-            title={isAutoFit ? (lang === 'zh' ? '适应宽度: 开' : 'Auto Fit: ON') : (lang === 'zh' ? '适应宽度: 关' : 'Auto Fit: OFF')}
+            title={
+              isAutoFit
+                ? (lang === 'zh'
+                    ? '全景自适应: 已开启 (波形高宽自适应调节，所有信号完整自适应居中显示)'
+                    : 'Auto Fit: ON (All signals & cycles adaptively centered in view)')
+                : (lang === 'zh'
+                    ? '全景自适应: 已关闭 (点击一键自适应，使全部信号完整居中显示)'
+                    : 'Auto Fit: OFF (Click to adaptively center all signals in view)')
+            }
           >
             <Scan className="w-3.5 h-3.5" />
+            <span className="text-[11px] hidden sm:inline">{lang === 'zh' ? '全景自适应' : 'Fit All'}</span>
+            {isAutoFit && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
           </button>
 
           {/* Zoom segment */}
@@ -797,9 +898,10 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
         data-skin={skin}
         style={{
           ...effectiveHeightStyle,
+          ...viewportTransitionStyle,
           backgroundColor: currentSkinInfo.bgColor,
         }}
-        className={`relative overflow-auto p-4 md:p-6 select-none skin-${skin} ${
+        className={`relative overflow-auto p-1.5 sm:p-2.5 select-none skin-${skin} ${
           heightMode === 'fill' ? 'flex-1 min-h-0' : ''
         }`}
       >
@@ -829,23 +931,45 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
           </div>
         )}
 
-        <div className="min-w-fit min-h-full flex flex-col items-center justify-start pt-2 pb-6 m-auto">
-          <div
-            className={`transition-transform duration-75 origin-top inline-block relative ${
-              showGuideline ? 'cursor-crosshair' : ''
-            }`}
-            style={{ transform: `scale(${zoom})` }}
-            onMouseMove={handleWaveMouseMove}
-            onMouseLeave={handleWaveMouseLeave}
-            onClick={handleWaveClick}
-          >
-            {/* WaveDrom mounts SVG directly here */}
+        {/* Waveform Dynamic Visual Centering (Suggestion 3: vertical centering if small, top-aligned with scroll if tall) */}
+        {(() => {
+          const isTaller = Boolean(
+            svgMetrics && viewportRef.current &&
+            (svgMetrics.svgHeight * zoom) > (viewportRef.current.clientHeight - 20)
+          );
+          return (
+            <div className={`min-w-full min-h-full flex p-0 m-auto ${
+              isTaller ? 'items-center justify-start flex-col pt-2' : 'items-center justify-center'
+            }`}>
+              <div
+                className="relative transition-[width,height] duration-150 ease-out m-auto shrink-0"
+                style={{
+                  width: svgMetrics?.svgWidth ? `${Math.round(svgMetrics.svgWidth * zoom)}px` : 'auto',
+                  height: svgMetrics?.svgHeight ? `${Math.round(svgMetrics.svgHeight * zoom)}px` : 'auto',
+                }}
+              >
             <div
-              ref={containerRef}
-              id="waveform_container_svg"
-              data-skin={skin}
-              className={`wavedrom-render-host select-none filter drop-shadow-xs skin-${skin}`}
-            />
+              className={`absolute top-0 left-0 origin-top-left transition-transform duration-150 ease-out select-none ${
+                showGuideline ? 'cursor-crosshair' : ''
+              }`}
+              style={{
+                width: svgMetrics?.svgWidth ? `${svgMetrics.svgWidth}px` : 'auto',
+                height: svgMetrics?.svgHeight ? `${svgMetrics.svgHeight}px` : 'auto',
+                transform: `scale(${zoom})`,
+              }}
+              onMouseMove={handleWaveMouseMove}
+              onMouseLeave={handleWaveMouseLeave}
+              onClick={handleWaveClick}
+            >
+              {/* WaveDrom mounts SVG directly here */}
+              <div
+                ref={containerRef}
+                id="waveform_container_svg"
+                data-skin={skin}
+                className={`wavedrom-render-host select-none filter drop-shadow-xs skin-${skin} transition-opacity duration-150 ${
+                  isRendering ? 'opacity-60' : 'opacity-100'
+                }`}
+              />
 
             {/* Interactive Vertical Timing Alignment & Cross-Clock Domain Guideline Overlay */}
             {showGuideline && svgMetrics && (effectiveHoverCycle !== null || effectiveLockedCycle !== null) && (
@@ -1068,8 +1192,11 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
                 })()}
               </svg>
             )}
+            </div>
           </div>
         </div>
+      );
+    })()}
       </div>
 
       {/* Interactive Bottom Resize Handle (when not fill height) */}

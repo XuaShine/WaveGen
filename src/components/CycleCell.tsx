@@ -380,7 +380,7 @@ export const CycleCell: React.FC<CycleCellProps> = ({
     >
       {/* Node Tag Badge on top of cell with 1-click delete */}
       {nodeTag ? (
-        <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center bg-purple-600 rounded-full text-white font-mono text-[9px] font-bold shadow-xs">
+        <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center bg-purple-600 rounded-full text-white font-mono text-[9px] font-bold shadow-xs">
           <button
             type="button"
             onClick={(e) => {
@@ -415,7 +415,7 @@ export const CycleCell: React.FC<CycleCellProps> = ({
             calculatePosition(240, 140);
             setShowNodeModal(true);
           }}
-          className="opacity-0 hover:opacity-100 group-hover:opacity-70 focus:opacity-100 transition-opacity absolute -top-2 left-1/2 -translate-x-1/2 z-10 px-1 py-0.2 bg-slate-700 hover:bg-purple-600 text-white text-[8px] rounded-full shadow-xs cursor-pointer flex items-center gap-0.5"
+          className="opacity-0 hover:opacity-100 group-hover:opacity-70 focus:opacity-100 transition-opacity absolute -top-2 left-1/2 -translate-x-1/2 z-[5] px-1 py-0.2 bg-slate-700 hover:bg-purple-600 text-white text-[8px] rounded-full shadow-xs cursor-pointer flex items-center gap-0.5"
           title="为此周期添加节点标记"
         >
           +节点

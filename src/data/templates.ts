@@ -24,7 +24,7 @@ export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
     ],
     edges: [],
     head: {
-      text: '数字时序设计 (Timing Diagram)',
+      text: '',
       tick: 0,
       every: 1,
     },

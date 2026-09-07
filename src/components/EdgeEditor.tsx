@@ -30,6 +30,11 @@ interface EdgeEditorProps {
   position?: EdgeEditorPosition;
   onChangePosition?: (pos: EdgeEditorPosition) => void;
   className?: string;
+  height?: number;
+  onHeightChange?: (height: number) => void;
+  isOpen?: boolean;
+  onToggleOpen?: (open: boolean) => void;
+  onResetBalanceHeight?: () => void;
 }
 
 const ARROW_TYPES: Array<{ value: EdgeAnnotation['arrow']; labelZh: string; labelEn: string; descZh: string; descEn: string }> = [
@@ -56,27 +61,55 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
   position = 'left_bottom',
   onChangePosition,
   className = '',
+  height: propsHeight,
+  onHeightChange,
+  isOpen: propsIsOpen,
+  onToggleOpen,
+  onResetBalanceHeight,
 }) => {
   const { lang } = useI18n();
-  const [isOpen, setIsOpen] = useState(true);
+  const [internalIsOpen, setInternalIsOpen] = useState(true);
+  const isOpen = propsIsOpen !== undefined ? propsIsOpen : internalIsOpen;
+  const setIsOpen = (val: boolean) => {
+    if (onToggleOpen) {
+      onToggleOpen(val);
+    } else {
+      setInternalIsOpen(val);
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<'edges' | 'nodes'>('edges');
   const [source, setSource] = useState('a');
   const [target, setTarget] = useState('b');
   const [arrow, setArrow] = useState<EdgeAnnotation['arrow']>('~>');
   const [label, setLabel] = useState('');
 
-  // User Request: 切换时保持大小不变，同时支持框大小可调节
-  const [editorHeight, setEditorHeight] = useState<number>(() => {
+  // User Request: 切换时保持大小不变，同时支持框大小可调节，与波形面板协同撑满右屏
+  const [internalHeight, setInternalHeight] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('wavedrom_edge_editor_height');
       if (saved) {
         const val = parseInt(saved, 10);
-        if (!isNaN(val) && val >= 180 && val <= 800) return val;
+        if (!isNaN(val) && val >= 160 && val <= 900) return val;
       }
     } catch {}
     return 280;
   });
 
+  const editorHeight = propsHeight !== undefined ? propsHeight : internalHeight;
+  const setEditorHeight = (val: number | ((prev: number) => number)) => {
+    const nextH = typeof val === 'function' ? val(editorHeight) : val;
+    if (onHeightChange) {
+      onHeightChange(nextH);
+    } else {
+      setInternalHeight(nextH);
+    }
+    try {
+      localStorage.setItem('wavedrom_edge_editor_height', String(nextH));
+    } catch {}
+  };
+
+  const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const startYRef = useRef(0);
   const startHRef = useRef(0);
@@ -84,27 +117,35 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
   const handleStartResize = (e: React.MouseEvent) => {
     e.preventDefault();
     isDraggingRef.current = true;
+    setIsDragging(true);
     startYRef.current = e.clientY;
     startHRef.current = editorHeight;
 
+    let rafId: number | null = null;
+    let pendingH = editorHeight;
+
     const onMouseMove = (moveEvt: MouseEvent) => {
       if (!isDraggingRef.current) return;
-      // Handle is at the top of EdgeEditor: dragging UP increases height
+      // Handle is at the top of EdgeEditor: dragging UP increases height, capped at 75% viewport
       const delta = startYRef.current - moveEvt.clientY;
-      const nextH = Math.max(180, Math.min(800, startHRef.current + delta));
-      setEditorHeight(nextH);
+      const maxAllowed = Math.min(window.innerHeight * 0.75, 900);
+      pendingH = Math.max(160, Math.min(maxAllowed, startHRef.current + delta));
+
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          setEditorHeight(pendingH);
+          rafId = null;
+        });
+      }
     };
 
     const onMouseUp = () => {
       isDraggingRef.current = false;
+      setIsDragging(false);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      setEditorHeight(pendingH);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
-      setEditorHeight((currentH) => {
-        try {
-          localStorage.setItem('wavedrom_edge_editor_height', String(currentH));
-        } catch {}
-        return currentH;
-      });
     };
 
     window.addEventListener('mousemove', onMouseMove);
@@ -192,26 +233,61 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
     }
   };
 
+  if (!isOpen) {
+    return (
+      <div className={`shrink-0 select-none ${className}`}>
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl border border-purple-200/90 dark:border-purple-800/80 bg-gradient-to-r from-purple-50/90 via-white to-purple-50/50 dark:from-purple-950/60 dark:via-slate-900 dark:to-purple-950/40 hover:border-purple-400 dark:hover:border-purple-600 text-slate-700 dark:text-slate-200 shadow-xs transition-all cursor-pointer group"
+          title={lang === 'zh' ? '点击展开时序连线与跨拍标注面板' : 'Click to expand Timing Edges & Node Annotations'}
+        >
+          <div className="flex items-center gap-2">
+            <CornerDownRight className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+              {lang === 'zh' ? '⚡ 时序连线与跨拍标注' : '⚡ Timing Edges & Annotations'}
+            </span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 border border-purple-200 dark:border-purple-700/80 text-[11px] font-medium select-none">
+              <span className="font-bold text-purple-900 dark:text-purple-100 font-mono">{edges.length}</span>
+              <span className="text-purple-700 dark:text-purple-300 font-semibold">{lang === 'zh' ? '线' : 'edges'}</span>
+              <span className="text-purple-300 dark:text-purple-600 font-bold">·</span>
+              <span className="font-bold text-indigo-900 dark:text-indigo-100 font-mono">{existingNodesList.length}</span>
+              <span className="text-indigo-700 dark:text-indigo-300 font-semibold">{lang === 'zh' ? '点' : 'nodes'}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 font-medium">
+            <span className="text-[11px] font-semibold">{lang === 'zh' ? '点击展开' : 'Expand'}</span>
+            <ChevronUp className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform" />
+          </div>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden flex flex-col ${className}`}
-      style={isOpen ? { height: `${editorHeight}px` } : undefined}
+      style={{
+        height: `${editorHeight}px`,
+        transition: isDragging ? 'none' : 'height 240ms cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
     >
       {/* Top Draggable Resize Handle (User Request: 把手移动到顶部) */}
       {isOpen && (
         <div
           onMouseDown={handleStartResize}
           onDoubleClick={() => {
-            setEditorHeight(280);
-            try {
-              localStorage.setItem('wavedrom_edge_editor_height', '280');
-            } catch {}
+            if (onResetBalanceHeight) {
+              onResetBalanceHeight();
+            } else {
+              setEditorHeight(280);
+            }
           }}
           className="h-3 w-full bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/50 flex items-center justify-center cursor-row-resize select-none shrink-0 group transition-colors"
           title={
             lang === 'zh'
-              ? '按住向上/向下拖拽调节框大小，双击恢复默认高度 (280px)'
-              : 'Drag up/down to resize panel, double click to reset (280px)'
+              ? '上下拖拽调节两面板高度占比，双击恢复均分 (两面板始终铺满右侧屏幕)'
+              : 'Drag up/down to adjust panel ratio, double click to balance'
           }
         >
           <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-purple-500 transition-colors" />
@@ -275,14 +351,14 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
             </button>
           )}
 
-          {/* Collapse / Expand */}
+          {/* Collapse / Expand to Bottom Capsule */}
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer rounded"
-            title={isOpen ? (lang === 'zh' ? '收起面板' : 'Collapse') : (lang === 'zh' ? '展开面板' : 'Expand')}
+            className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title={isOpen ? (lang === 'zh' ? '收起为吸底胶囊' : 'Collapse to bottom capsule') : (lang === 'zh' ? '展开面板' : 'Expand')}
           >
-            {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
@@ -349,6 +425,58 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
           {/* Tab 1: Timing Edges Form & Chips */}
           {activeTab === 'edges' && (
             <div className="flex flex-col gap-2">
+              {/* Visual Node Quick-Pick Pool (Suggestion 4: Click 2 pills to instantly pair source & target) */}
+              {existingNodesList.length > 0 && (
+                <div className="flex flex-col gap-1 p-1.5 bg-purple-50/60 dark:bg-purple-950/30 rounded-lg border border-purple-200/70 dark:border-purple-850/50 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1">
+                      <Tag className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                      {lang === 'zh' ? '可视化节点快捷拾取池 (点击药丸设为源/目点):' : 'Visual Node Quick-Picker:'}
+                    </span>
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400">
+                      {source && target ? (lang === 'zh' ? `已配对: ${source} → ${target}` : `Paired: ${source} → ${target}`) : (lang === 'zh' ? '点击两个标签完成连线配对' : 'Click 2 tags to pair')}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {existingNodesList.map((n) => {
+                      const isSrc = source.trim().toLowerCase() === n.tag.toLowerCase();
+                      const isTgt = target.trim().toLowerCase() === n.tag.toLowerCase();
+                      return (
+                        <button
+                          key={`node_pill_${n.tag}_${n.signalId}_${n.cycle}`}
+                          type="button"
+                          onClick={() => {
+                            if (!source || (source && target)) {
+                              setSource(n.tag);
+                              setTarget('');
+                            } else if (source && !target) {
+                              if (source === n.tag) {
+                                setSource('');
+                              } else {
+                                setTarget(n.tag);
+                              }
+                            }
+                          }}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-xs font-semibold cursor-pointer border transition-all ${
+                            isSrc
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-2xs scale-105 ring-2 ring-blue-400/40'
+                              : isTgt
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-2xs scale-105 ring-2 ring-purple-400/40'
+                              : 'bg-white dark:bg-slate-800 hover:bg-purple-100/70 dark:hover:bg-purple-900/40 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-purple-300'
+                          }`}
+                          title={lang === 'zh' ? `节点 [${n.tag}] · 信号: ${n.signalName} · 第 T${n.cycle} 拍 (点击选定)` : `Node [${n.tag}] · ${n.signalName} T${n.cycle}`}
+                        >
+                          <span className="font-bold">{n.tag}</span>
+                          <span className="text-[10px] opacity-75 font-sans font-normal">({n.signalName}#T{n.cycle})</span>
+                          {isSrc && <span className="text-[9px] bg-blue-800 text-blue-100 px-1 py-0.2 rounded font-sans font-bold">{lang === 'zh' ? '源' : 'Src'}</span>}
+                          {isTgt && <span className="text-[9px] bg-purple-800 text-purple-100 px-1 py-0.2 rounded font-sans font-bold">{lang === 'zh' ? '目' : 'Dst'}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Compact Creation Form */}
               <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700/60">
                 <div className="flex items-center gap-1">
