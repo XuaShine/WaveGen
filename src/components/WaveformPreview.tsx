@@ -278,20 +278,13 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
     return fillHeight ? 'fill' : 'custom';
   });
 
+  const effectiveHeightMode = layoutMode === 'split' || fillHeight ? 'fill' : heightMode;
+
   useEffect(() => {
-    if (fillHeight) {
-      try {
-        const savedMode = localStorage.getItem('wavedrom_height_mode');
-        if (savedMode === 'custom' || savedMode === 'auto') {
-          setHeightMode(savedMode);
-        } else {
-          setHeightMode('fill');
-        }
-      } catch {
-        setHeightMode('fill');
-      }
+    if (fillHeight || layoutMode === 'split') {
+      setHeightMode('fill');
     }
-  }, [fillHeight]);
+  }, [fillHeight, layoutMode]);
 
   const updateHeightMode = (mode: 'fill' | 'custom' | 'auto') => {
     setHeightMode(mode);
@@ -588,11 +581,11 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
 
   // Compute effective render viewport height style
   const effectiveHeightStyle: React.CSSProperties =
-    heightMode === 'fill'
+    effectiveHeightMode === 'fill'
       ? { height: '100%', flex: 1, minHeight: '140px' }
       : isCompact
       ? { height: '180px', minHeight: '160px', maxHeight: '180px' }
-      : heightMode === 'auto'
+      : effectiveHeightMode === 'auto'
       ? { height: 'auto', minHeight: '180px', maxHeight: '85vh' }
       : { height: `${customHeight}px`, minHeight: '140px', maxHeight: `${customHeight}px` };
 
@@ -605,7 +598,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
     <div
       ref={previewRootRef}
       className={`flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden ${
-        heightMode === 'fill' ? 'h-full flex-1 min-h-0' : ''
+        effectiveHeightMode === 'fill' ? 'h-full flex-1 min-h-0' : ''
       } ${className}`}
     >
       {/* Top Preview Toolbar: Row 1 (Title, Period Ruler, Text & Typography, and Crosshair) */}
@@ -912,7 +905,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
           backgroundColor: currentSkinInfo.bgColor,
         }}
         className={`relative overflow-auto p-1.5 sm:p-2.5 select-none skin-${skin} ${
-          heightMode === 'fill' ? 'flex-1 min-h-0' : ''
+          effectiveHeightMode === 'fill' ? 'flex-1 min-h-0' : ''
         }`}
       >
         {/* Floating Alignment Guideline Status Bar */}
@@ -1211,8 +1204,8 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
     })()}
       </div>
 
-      {/* Interactive Bottom Resize Handle (when not fill height) */}
-      {heightMode !== 'fill' && (
+      {/* Interactive Bottom Resize Handle (only when stacked and not fill height) */}
+      {effectiveHeightMode !== 'fill' && layoutMode !== 'split' && (
         <div
           onMouseDown={handleStartResize}
           onDoubleClick={() => updateHeightMode(heightMode === 'auto' ? 'custom' : 'auto')}
