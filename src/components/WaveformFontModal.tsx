@@ -258,15 +258,34 @@ export const WaveformFontModal: React.FC<WaveformFontModalProps> = ({
 
           {/* Font Family */}
           <div className="flex flex-col gap-1.5">
-            <span className="font-bold text-slate-700 dark:text-slate-200">
-              {t('font_family')}
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-700 dark:text-slate-200">
+                {t('font_family')}
+              </span>
+              <span className="text-[11px] text-slate-400">
+                {lang === 'zh' ? '包含等宽代码、现代无衬线、中文黑体与论文衬线' : 'Monospace, Sans, Chinese & Serif'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-0.5">
               {[
-                { label: t('font_family_mono'), value: 'monospace' as const },
-                { label: t('font_family_sans'), value: 'sans-serif' as const },
-                { label: t('font_family_serif'), value: 'serif' as const },
-                { label: lang === 'zh' ? '系统默认 (System UI)' : 'System UI', value: 'system-ui' as const },
+                // 等宽字体
+                { label: 'JetBrains Mono', value: 'jetbrains-mono', sample: '"JetBrains Mono", monospace' },
+                { label: 'Fira Code', value: 'fira-code', sample: '"Fira Code", monospace' },
+                { label: 'Consolas', value: 'consolas', sample: 'Consolas, monospace' },
+                { label: 'Source Code Pro', value: 'source-code-pro', sample: '"Source Code Pro", monospace' },
+                { label: lang === 'zh' ? '通用代码等宽 (Monospace)' : 'System Monospace', value: 'monospace', sample: 'monospace' },
+                // 现代无衬线
+                { label: 'Inter (现代科技)', value: 'inter', sample: '"Inter", sans-serif' },
+                { label: 'Roboto', value: 'roboto', sample: '"Roboto", sans-serif' },
+                { label: 'Segoe UI', value: 'segoe-ui', sample: '"Segoe UI", sans-serif' },
+                { label: 'Arial (工程标准)', value: 'arial', sample: 'Arial, sans-serif' },
+                { label: lang === 'zh' ? '系统默认 (System UI)' : 'System UI', value: 'system-ui', sample: 'system-ui, sans-serif' },
+                // 中文字体
+                { label: lang === 'zh' ? '苹方 / 微软雅黑 / 思源黑体' : 'PingFang / YaHei / Noto', value: 'chinese-sans', sample: '"PingFang SC", "Microsoft YaHei", sans-serif' },
+                // 论文与学术衬线
+                { label: 'Times New Roman (学术论文)', value: 'times', sample: '"Times New Roman", serif' },
+                { label: 'Georgia (出版衬线)', value: 'georgia', sample: 'Georgia, serif' },
+                { label: lang === 'zh' ? '通用衬线 (Serif)' : 'Generic Serif', value: 'serif', sample: 'serif' },
               ].map((f) => (
                 <button
                   key={f.value}
@@ -278,7 +297,7 @@ export const WaveformFontModal: React.FC<WaveformFontModalProps> = ({
                       : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <span className="truncate">{f.label}</span>
+                  <span className="truncate" style={{ fontFamily: f.sample }}>{f.label}</span>
                   {currentSectionConfig.fontFamily === f.value && <Check className="w-3.5 h-3.5 shrink-0 ml-1" />}
                 </button>
               ))}

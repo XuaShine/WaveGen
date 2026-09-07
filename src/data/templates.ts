@@ -2,6 +2,41 @@ import { ProtocolTemplate } from '../types';
 
 export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
   {
+    id: 'blank',
+    name: '空白波形画布 (Blank Canvas)',
+    category: 'Basic',
+    description: '干净纯粹的基础空白工程，预设包含 1 路主时钟与 1 路基础数据信号，自由从零设计',
+    totalCycles: 12,
+    signals: [
+      {
+        id: 'sig_clk_base',
+        name: 'clk',
+        wave: 'p...........',
+        category: 'clock',
+      },
+      {
+        id: 'sig_data_base',
+        name: 'data_in',
+        wave: '01.x=.01.zz.',
+        data: ['IDLE', 'VALID'],
+        category: 'bus',
+      },
+    ],
+    edges: [],
+    head: {
+      text: '数字时序设计 (Timing Diagram)',
+      tick: 0,
+      every: 1,
+    },
+    foot: {
+      text: '',
+    },
+    config: {
+      hscale: 1,
+      skin: 'default',
+    },
+  },
+  {
     id: 'spi_mode0',
     name: 'SPI Master (Mode 0)',
     category: 'Serial',

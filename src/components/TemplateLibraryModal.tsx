@@ -92,6 +92,7 @@ export const TemplateLibraryModal: React.FC<TemplateLibraryModalProps> = ({
 
   const categories = [
     { id: 'All', label: lang === 'zh' ? '全部模板' : 'All Templates' },
+    { id: 'Basic', label: lang === 'zh' ? '基础与空白' : 'Basic & Blank' },
     { id: 'Timing', label: lang === 'zh' ? '时序与建立保持' : 'Timing & Setup/Hold' },
     { id: 'Serial', label: lang === 'zh' ? '串行总线 (SPI/I2C/UART)' : 'Serial (SPI/I2C/UART)' },
     { id: 'Bus', label: lang === 'zh' ? '系统与片上总线' : 'System Bus' },

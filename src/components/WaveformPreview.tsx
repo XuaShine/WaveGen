@@ -61,11 +61,12 @@ interface WaveformPreviewProps {
 }
 
 const HEIGHT_PRESETS = [
-  { labelZh: '紧凑 (200px)', labelEn: 'Compact (200px)', value: 200 },
+  { labelZh: '紧凑 (220px)', labelEn: 'Compact (220px)', value: 220 },
   { labelZh: '标准 (320px)', labelEn: 'Standard (320px)', value: 320 },
-  { labelZh: '中等 (440px)', labelEn: 'Medium (440px)', value: 440 },
-  { labelZh: '大图 (600px)', labelEn: 'Large (600px)', value: 600 },
-  { labelZh: '超大 (800px)', labelEn: 'X-Large (800px)', value: 800 },
+  { labelZh: '舒适 (420px)', labelEn: 'Comfort (420px)', value: 420 },
+  { labelZh: '扩展 (540px)', labelEn: 'Expanded (540px)', value: 540 },
+  { labelZh: '大图 (700px)', labelEn: 'Large (700px)', value: 700 },
+  { labelZh: '超大 (900px)', labelEn: 'X-Large (900px)', value: 900 },
 ];
 
 export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
@@ -291,7 +292,6 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
   };
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [showSizeMenu, setShowSizeMenu] = useState<boolean>(false);
   const [isAutoFit, setIsAutoFit] = useState<boolean>(false);
 
   const fitToWidth = useCallback(() => {
@@ -488,6 +488,16 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
     }
   };
 
+  // User Request: 改成点击613px这一块切换高度
+  const handleCycleNextHeight = () => {
+    updateHeightMode('custom');
+    const presetValues = HEIGHT_PRESETS.map((p) => p.value);
+    const currentH = heightMode === 'custom' ? customHeight : (viewportRef.current?.clientHeight || 320);
+    // Find next preset strictly greater than current, or wrap around
+    const nextVal = presetValues.find((v) => v > currentH) ?? presetValues[0];
+    setCustomHeight(nextVal);
+  };
+
   const currentSkinInfo = getSkinInfo(skin);
   const isDarkSkin = currentSkinInfo.category === 'dark';
 
@@ -603,7 +613,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
 
           {/* Height controls: - [Height] + [Fill Bottom] */}
           <div className="flex items-center gap-1 shrink-0">
-            <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs text-[11px] font-semibold overflow-hidden shrink-0">
+            <div className="flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs text-[11px] font-semibold shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -612,117 +622,29 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
                   updateHeightMode('custom');
                   setCustomHeight(nextH);
                 }}
-                className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 cursor-pointer select-none"
+                className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 cursor-pointer select-none rounded-l-md"
                 title={lang === 'zh' ? '高度 -40px' : 'Decrease height (-40px)'}
               >
                 -
               </button>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowSizeMenu(!showSizeMenu)}
-                  className="flex items-center gap-1 px-2 py-0.5 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 cursor-pointer"
-                  title={lang === 'zh' ? '点击选择高度预设或直接输入' : 'Select height presets or enter pixels'}
-                >
-                  <MoveVertical className="w-2.5 h-2.5 text-blue-500 shrink-0" />
-                  <span className="font-mono whitespace-nowrap">
-                    {heightMode === 'fill' ? t('height_fill') : heightMode === 'auto' ? t('height_auto') : `${customHeight}px`}
-                  </span>
-                  <ChevronDown className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                </button>
-                {showSizeMenu && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setShowSizeMenu(false)}
-                    />
-                    <div className="absolute top-full left-0 mt-1.5 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateHeightMode('fill');
-                          setShowSizeMenu(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer text-xs ${
-                          heightMode === 'fill'
-                            ? 'font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-slate-700/60'
-                            : 'text-slate-700 dark:text-slate-200'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <span>↕️</span>
-                          <span>{t('height_fill')}</span>
-                        </span>
-                        <span className="text-[10px] text-slate-400">{lang === 'zh' ? '占满底部' : 'Full Height'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateHeightMode('auto');
-                          setShowSizeMenu(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors cursor-pointer text-xs ${
-                          heightMode === 'auto'
-                            ? 'font-bold text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-slate-700/60'
-                            : 'text-slate-700 dark:text-slate-200'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <span>📐</span>
-                          <span>{t('height_auto')}</span>
-                        </span>
-                        <span className="text-[10px] text-slate-400">{lang === 'zh' ? '随内容' : 'Fit Content'}</span>
-                      </button>
-
-                      <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
-                      <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        {lang === 'zh' ? '常用高度预设' : 'Height Presets'}
-                      </div>
-                      <div className="grid grid-cols-3 gap-1 px-2 py-1">
-                        {[240, 320, 400, 500, 640, 800].map((h) => (
-                          <button
-                            key={h}
-                            type="button"
-                            onClick={() => {
-                              updateHeightMode('custom');
-                              setCustomHeight(h);
-                              setShowSizeMenu(false);
-                            }}
-                            className={`px-2 py-1 rounded text-center font-mono text-xs cursor-pointer transition-colors ${
-                              heightMode === 'custom' && customHeight === h
-                                ? 'bg-blue-600 text-white font-bold'
-                                : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200'
-                            }`}
-                          >
-                            {h}px
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
-                      <div className="px-3 py-1 flex items-center justify-between gap-2">
-                        <span className="text-[11px] text-slate-500">{lang === 'zh' ? '自定义像素' : 'Custom px'}:</span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            min="140"
-                            max="1600"
-                            step="20"
-                            value={customHeight}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 340;
-                              updateHeightMode('custom');
-                              setCustomHeight(val);
-                            }}
-                            className="w-16 px-1.5 py-0.5 font-mono text-xs text-center border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900"
-                          />
-                          <span className="text-[11px] text-slate-400">px</span>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+              {/* User Request: 改成点击613px这一块切换高度，去掉高度预设下拉按钮 */}
+              <button
+                type="button"
+                onClick={handleCycleNextHeight}
+                className="flex items-center gap-1 px-2.5 py-0.5 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors"
+                title={
+                  lang === 'zh'
+                    ? `点击直接切换高度预设 (当前: ${
+                        heightMode === 'fill' ? t('height_fill') : heightMode === 'auto' ? t('height_auto') : `${customHeight}px`
+                      })`
+                    : `Click to switch to next height preset`
+                }
+              >
+                <MoveVertical className="w-2.5 h-2.5 text-blue-500 shrink-0" />
+                <span className="font-mono whitespace-nowrap font-bold">
+                  {heightMode === 'fill' ? t('height_fill') : heightMode === 'auto' ? t('height_auto') : `${customHeight}px`}
+                </span>
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -731,7 +653,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
                   updateHeightMode('custom');
                   setCustomHeight(nextH);
                 }}
-                className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 cursor-pointer select-none"
+                className="px-1.5 py-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 cursor-pointer select-none rounded-r-md"
                 title={lang === 'zh' ? '高度 +40px' : 'Increase height (+40px)'}
               >
                 +

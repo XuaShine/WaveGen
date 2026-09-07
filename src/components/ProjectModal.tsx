@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Save,
@@ -8,7 +8,6 @@ import {
   Download,
   Upload,
   Check,
-  AlertTriangle,
   Clock,
   Trash2,
   Copy,
@@ -17,6 +16,10 @@ import {
   Sparkles,
   Pencil,
   Bookmark,
+  CheckCircle2,
+  FileText,
+  RefreshCw,
+  PlusCircle,
 } from 'lucide-react';
 import { SignalItem, EdgeAnnotation, HeadFootConfig, DiagramConfig, WaveJson, ProtocolTemplate } from '../types';
 import { parseWaveJson } from '../lib/waveParser';
@@ -69,6 +72,8 @@ interface ProjectModalProps {
   snapshots: ProjectSnapshot[];
   onRestoreSnapshot: (snapshot: ProjectSnapshot) => void;
   onClearSnapshots: () => void;
+  onCreateSnapshot?: (label?: string) => void;
+  onDeleteSnapshot?: (id: string) => void;
   projectName: string;
   onUpdateProjectName: (name: string) => void;
   initialTab?: 'project' | 'code' | 'history';
@@ -85,6 +90,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   snapshots,
   onRestoreSnapshot,
   onClearSnapshots,
+  onCreateSnapshot,
+  onDeleteSnapshot,
   projectName,
   onUpdateProjectName,
   initialTab = 'project',
@@ -94,44 +101,23 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [copiedProject, setCopiedProject] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [nameInput, setNameInput] = useState(projectName || (lang === 'zh' ? '我的波形工程' : 'My_Timing_Project'));
+  const [isNameEditing, setIsNameEditing] = useState(false);
+  const [nameSavedFeedback, setNameSavedFeedback] = useState(false);
   const [jsonCodeText, setJsonCodeText] = useState('');
   const [codeParseError, setCodeParseError] = useState<string | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  // Snapshot input
+  const [manualSnapshotLabel, setManualSnapshotLabel] = useState('');
+  const [snapshotSuccessNotice, setSnapshotSuccessNotice] = useState<string | null>(null);
 
   // Custom Preset Template saving
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
-  const [templateCategory, setTemplateCategory] = useState<'Bus' | 'Serial' | 'Memory' | 'Clock' | 'Control' | 'Timing' | 'Custom'>('Custom');
+  const [templateCategory, setTemplateCategory] = useState<'Basic' | 'Bus' | 'Serial' | 'Memory' | 'Clock' | 'Control' | 'Timing' | 'Custom'>('Custom');
   const [templateDesc, setTemplateDesc] = useState('');
   const [saveTemplateNotice, setSaveTemplateNotice] = useState<string | null>(null);
 
-  const handleSaveAsPresetTemplate = () => {
-    const finalName = nameInput.trim() || (lang === 'zh' ? '自定义预设模板' : 'Custom_Preset_Template');
-    const newTpl: ProtocolTemplate = {
-      id: `custom_${Date.now()}`,
-      name: finalName,
-      category: templateCategory,
-      description: templateDesc.trim() || (lang === 'zh' ? `基于工程「${finalName}」保存的自定义协议模板` : `Template based on ${finalName}`),
-      signals: JSON.parse(JSON.stringify(currentDesign.signals)),
-      edges: JSON.parse(JSON.stringify(currentDesign.edges)),
-      head: JSON.parse(JSON.stringify(currentDesign.head)),
-      foot: JSON.parse(JSON.stringify(currentDesign.foot)),
-      config: JSON.parse(JSON.stringify(currentDesign.config)),
-      totalCycles: currentDesign.totalCycles,
-    };
-    try {
-      const existingRaw = localStorage.getItem('wavedrom_custom_templates_v1');
-      const existing = existingRaw ? JSON.parse(existingRaw) : [];
-      const updated = [newTpl, ...(Array.isArray(existing) ? existing : [])];
-      localStorage.setItem('wavedrom_custom_templates_v1', JSON.stringify(updated));
-      setSaveTemplateNotice(lang === 'zh' ? `已成功将「${finalName}」保存到预设模板库！` : `Saved "${finalName}" to presets!`);
-      setTimeout(() => {
-        setSaveTemplateNotice(null);
-        setIsSavingTemplate(false);
-      }, 2500);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      alert((lang === 'zh' ? '保存预设模板失败: ' : 'Failed to save template: ') + msg);
-    }
-  };
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -156,7 +142,16 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Handle Export .wavedrom Project File
+  const handleCommitProjectName = () => {
+    const trimmed = nameInput.trim() || 'MyTimingDiagram';
+    setNameInput(trimmed);
+    onUpdateProjectName(trimmed);
+    setIsNameEditing(false);
+    setNameSavedFeedback(true);
+    setTimeout(() => setNameSavedFeedback(false), 1500);
+  };
+
+  // Export .wavedrom Project File
   const handleExportProjectFile = () => {
     const finalName = nameInput.trim() || 'WaveDrom_Project';
     onUpdateProjectName(finalName);
@@ -186,51 +181,84 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // Smart File Import: Supports both .wavedrom Project files AND native .json WaveJSON files!
+  // Export WaveJSON .json file
+  const handleDownloadWaveJsonFile = () => {
+    const finalName = nameInput.trim() || 'wave';
+    const blob = new Blob([JSON.stringify(currentWaveJson, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${finalName.replace(/\s+/g, '_')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Process text for import
+  const processImportText = (text: string) => {
+    try {
+      const parsed = JSON.parse(text);
+
+      // Case 1: Full WaveDrom project file (.wavedrom)
+      if (parsed.signals && Array.isArray(parsed.signals)) {
+        if (parsed.projectName) {
+          onUpdateProjectName(parsed.projectName);
+        }
+        onLoadProject({
+          signals: parsed.signals,
+          edges: parsed.edges || [],
+          head: parsed.head || {},
+          foot: parsed.foot || {},
+          config: parsed.config || { hscale: 1, skin: 'default' },
+          totalCycles: parsed.totalCycles || 16,
+        });
+        onClose();
+      }
+      // Case 2: Native WaveJSON object file (.json) with 'signal' array
+      else if (parsed.signal && Array.isArray(parsed.signal)) {
+        const result = parseWaveJson(text);
+        if (result.error) {
+          alert((lang === 'zh' ? 'WaveJSON 解析失败: ' : 'WaveJSON parse error: ') + result.error);
+        } else {
+          onImportWaveJson(result);
+          onClose();
+        }
+      } else {
+        alert(lang === 'zh' ? '文件格式不匹配：请选择 .wavedrom 工程文件或标准 WaveJSON 配置文件。' : 'Unsupported format: please select a .wavedrom project or WaveJSON file.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert((lang === 'zh' ? '文件加载或 JSON 解析失败: ' : 'File load / JSON parse error: ') + msg);
+    }
+  };
+
+  // Smart File Import
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const parsed = JSON.parse(text);
-
-        // Case 1: Full WaveDrom project file (.wavedrom)
-        if (parsed.signals && Array.isArray(parsed.signals)) {
-          if (parsed.projectName) {
-            onUpdateProjectName(parsed.projectName);
-          }
-          onLoadProject({
-            signals: parsed.signals,
-            edges: parsed.edges || [],
-            head: parsed.head || {},
-            foot: parsed.foot || {},
-            config: parsed.config || { hscale: 1, skin: 'default' },
-            totalCycles: parsed.totalCycles || 16,
-          });
-          onClose();
-        }
-        // Case 2: Native WaveJSON object file (.json) with 'signal' array
-        else if (parsed.signal && Array.isArray(parsed.signal)) {
-          const result = parseWaveJson(text);
-          if (result.error) {
-            alert((lang === 'zh' ? 'WaveJSON 解析失败: ' : 'WaveJSON parse error: ') + result.error);
-          } else {
-            onImportWaveJson(result);
-            onClose();
-          }
-        } else {
-          alert(lang === 'zh' ? '文件格式不匹配：请选择 .wavedrom 工程文件或标准 WaveJSON 配置文件。' : 'Unsupported format: please select a .wavedrom project or WaveJSON file.');
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        alert((lang === 'zh' ? '文件加载或 JSON 解析失败: ' : 'File load / JSON parse error: ') + msg);
-      }
+      const text = event.target?.result as string;
+      processImportText(text);
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  // Drag & drop file support
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      processImportText(text);
+    };
+    reader.readAsText(file);
   };
 
   // Copy Project JSON
@@ -252,6 +280,49 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     setTimeout(() => setCopiedProject(false), 2000);
   };
 
+  // Save As Copy
+  const handleSaveAsCopy = () => {
+    const copyName = `${nameInput.trim() || 'Project'}_Copy`;
+    setNameInput(copyName);
+    onUpdateProjectName(copyName);
+    if (onCreateSnapshot) {
+      onCreateSnapshot(lang === 'zh' ? `工程副本 (${copyName})` : `Project Copy (${copyName})`);
+    }
+    setSnapshotSuccessNotice(lang === 'zh' ? `已生成副本「${copyName}」并保存快照` : `Created copy "${copyName}"`);
+    setTimeout(() => setSnapshotSuccessNotice(null), 2500);
+  };
+
+  // Save As Preset Template
+  const handleSaveAsPresetTemplate = () => {
+    const finalName = nameInput.trim() || (lang === 'zh' ? '自定义预设模板' : 'Custom_Preset_Template');
+    const newTpl: ProtocolTemplate = {
+      id: `custom_${Date.now()}`,
+      name: finalName,
+      category: templateCategory,
+      description: templateDesc.trim() || (lang === 'zh' ? `基于工程「${finalName}」保存的自定义协议模板` : `Template based on ${finalName}`),
+      signals: JSON.parse(JSON.stringify(currentDesign.signals)),
+      edges: JSON.parse(JSON.stringify(currentDesign.edges)),
+      head: JSON.parse(JSON.stringify(currentDesign.head)),
+      foot: JSON.parse(JSON.stringify(currentDesign.foot)),
+      config: JSON.parse(JSON.stringify(currentDesign.config)),
+      totalCycles: currentDesign.totalCycles,
+    };
+    try {
+      const existingRaw = localStorage.getItem('wavedrom_custom_templates_v1');
+      const existing = existingRaw ? JSON.parse(existingRaw) : [];
+      const updated = [newTpl, ...(Array.isArray(existing) ? existing : [])];
+      localStorage.setItem('wavedrom_custom_templates_v1', JSON.stringify(updated));
+      setSaveTemplateNotice(lang === 'zh' ? `已成功将「${finalName}」保存到模板库！` : `Saved "${finalName}" to templates!`);
+      setTimeout(() => {
+        setSaveTemplateNotice(null);
+        setIsSavingTemplate(false);
+      }, 2500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert((lang === 'zh' ? '保存预设模板失败: ' : 'Failed to save template: ') + msg);
+    }
+  };
+
   // Code Tab: Copy WaveJSON Code
   const handleCopyCode = () => {
     navigator.clipboard.writeText(jsonCodeText);
@@ -259,17 +330,16 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  // Code Tab: Download WaveJSON File
-  const handleDownloadCodeJson = () => {
-    const blob = new Blob([jsonCodeText], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${(nameInput || 'wave').replace(/\s+/g, '_')}_wavejson.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  // Code Tab: Format / Prettify
+  const handlePrettifyCode = () => {
+    try {
+      const parsed = JSON.parse(jsonCodeText);
+      setJsonCodeText(JSON.stringify(parsed, null, 2));
+      setCodeParseError(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setCodeParseError(msg);
+    }
   };
 
   // Code Tab: Apply Edited WaveJSON
@@ -283,27 +353,56 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     onClose();
   };
 
+  // Manual snapshot creation
+  const handleManualCreateSnapshot = () => {
+    const label = manualSnapshotLabel.trim() || (lang === 'zh' ? `版本快照 · ${nameInput}` : `Snapshot · ${nameInput}`);
+    if (onCreateSnapshot) {
+      onCreateSnapshot(label);
+      setManualSnapshotLabel('');
+      setSnapshotSuccessNotice(lang === 'zh' ? '已成功创建快照点！' : 'Snapshot created successfully!');
+      setTimeout(() => setSnapshotSuccessNotice(null), 2000);
+    }
+  };
+
+  const formatRelativeTime = (timestamp: number) => {
+    const diff = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+    if (diff < 30) return lang === 'zh' ? '刚刚' : 'just now';
+    if (diff < 60) return lang === 'zh' ? `${diff} 秒前` : `${diff}s ago`;
+    const min = Math.floor(diff / 60);
+    if (min < 60) return lang === 'zh' ? `${min} 分钟前` : `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return lang === 'zh' ? `${hr} 小时前` : `${hr}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
+
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs cursor-pointer"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs cursor-pointer animate-in fade-in duration-150"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex flex-col w-full max-w-3xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-150 cursor-default"
+        className="flex flex-col w-full max-w-3xl max-h-[92vh] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-150 cursor-default"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80">
-          <div className="flex items-center gap-2">
-            <FolderOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+        {/* Modern Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
+              <FolderOpen className="w-4 h-4" />
+            </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                {lang === 'zh' ? '工程管理' : 'Project Management'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  {lang === 'zh' ? '工程管理中心' : 'Project Management'}
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
+                  {currentDesign.signals.length} {lang === 'zh' ? '信号' : 'signals'} · {currentDesign.totalCycles} {lang === 'zh' ? '拍' : 'cycles'}
+                </span>
+              </div>
               <p className="text-[11px] text-slate-500">
                 {lang === 'zh'
-                  ? '工程归档导出、WaveJSON 代码双向同步与版本快照'
-                  : 'Archive export, bidirectional WaveJSON sync, and version snapshots'}
+                  ? '工程出入库归档、WaveJSON 原生代码同步与版本快照恢复'
+                  : 'Project archive export, WaveJSON code synchronization and version snapshots'}
               </p>
             </div>
           </div>
@@ -315,29 +414,29 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-5 pt-2 gap-2">
+        {/* Tab Navigation */}
+        <div className="flex items-center border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-5 pt-2 gap-2">
           <button
             onClick={() => setActiveTab('project')}
             className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 cursor-pointer ${
               activeTab === 'project'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border-blue-600 shadow-2xs'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border-blue-600 shadow-2xs font-bold'
                 : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            <Save className="w-4 h-4" />
-            <span>{lang === 'zh' ? '工程归档 (.wavedrom / .json)' : 'Archive (.wavedrom / .json)'}</span>
+            <Save className="w-3.5 h-3.5" />
+            <span>{lang === 'zh' ? '工程与归档 (.wavedrom)' : 'Project & Archive'}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('code')}
             className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 cursor-pointer ${
               activeTab === 'code'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border-blue-600 shadow-2xs'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border-blue-600 shadow-2xs font-bold'
                 : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            <FileCode className="w-4 h-4 text-emerald-500" />
+            <FileCode className="w-3.5 h-3.5 text-emerald-500" />
             <span>{lang === 'zh' ? 'WaveJSON 代码' : 'WaveJSON Code'}</span>
           </button>
 
@@ -345,11 +444,11 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             onClick={() => setActiveTab('history')}
             className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 cursor-pointer ${
               activeTab === 'history'
-                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border-blue-600 shadow-2xs'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border-blue-600 shadow-2xs font-bold'
                 : 'text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            <History className="w-4 h-4 text-amber-500" />
+            <History className="w-3.5 h-3.5 text-amber-500" />
             <span>{lang === 'zh' ? '历史快照' : 'Snapshots'}</span>
             {snapshots.length > 0 && (
               <span className="ml-1 px-1.5 py-0.2 bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300 rounded-full text-[10px] font-bold">
@@ -359,56 +458,129 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Content 1: Project File (.wavedrom / .json) */}
+        {/* Tab 1: Project & Archive */}
         {activeTab === 'project' && (
-          <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            {/* Project Name and Export */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            {/* Project Meta Card */}
             <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                  <Save className="w-4 h-4 text-blue-500" />
-                  {lang === 'zh' ? '工程名称与文件导出' : 'Project Name & Export'}
+                  <FileText className="w-4 h-4 text-blue-500" />
+                  {lang === 'zh' ? '当前工程基础信息' : 'Current Project Details'}
                 </span>
-                <span className="text-[11px] text-slate-400">
-                  {lang === 'zh'
-                    ? `当前包含 ${currentDesign.signals.length} 条信号 · ${currentDesign.edges.length} 条关联关系`
-                    : `${currentDesign.signals.length} signals · ${currentDesign.edges.length} arrows`}
-                </span>
+                <div className="flex items-center gap-2">
+                  {nameSavedFeedback && (
+                    <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 animate-in fade-in">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {lang === 'zh' ? '工程名已保存' : 'Name updated'}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    {lang === 'zh' ? `包含 ${currentDesign.edges.length} 个关联箭头` : `${currentDesign.edges.length} edge arrows`}
+                  </span>
+                </div>
               </div>
 
+              {/* Editable Project Name */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <input
                     type="text"
                     value={nameInput}
-                    onChange={(e) => {
-                      setNameInput(e.target.value);
-                      onUpdateProjectName(e.target.value);
+                    onChange={(e) => setNameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCommitProjectName();
                     }}
-                    onBlur={() => {
-                      const trimmed = nameInput.trim() || 'MyTimingDiagram';
-                      setNameInput(trimmed);
-                      onUpdateProjectName(trimmed);
-                    }}
+                    onBlur={handleCommitProjectName}
                     placeholder={lang === 'zh' ? '请输入波形设计工程名' : 'Enter project name'}
-                    className="w-full pl-8 pr-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-medium"
+                    className="w-full pl-8 pr-16 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-bold"
                   />
                   <Pencil className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" />
+                  <button
+                    type="button"
+                    onClick={handleCommitProjectName}
+                    className="absolute right-1.5 top-1.5 px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 cursor-pointer"
+                  >
+                    {lang === 'zh' ? '保存' : 'Save'}
+                  </button>
                 </div>
+              </div>
+
+              {/* Export Buttons Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                {/* Export .wavedrom */}
                 <button
+                  type="button"
                   onClick={handleExportProjectFile}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors shadow-xs shrink-0 cursor-pointer"
-                  title={lang === 'zh' ? '保存并下载完整的可复原 .wavedrom 工程文件' : 'Download full .wavedrom project file'}
+                  className="flex flex-col items-center justify-center gap-1 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-xs cursor-pointer group"
+                  title={lang === 'zh' ? '导出完整工程包，包含所有波形、文字、边沿箭头与配置' : 'Download complete project'}
                 >
-                  <Download className="w-4 h-4" />
-                  <span>{lang === 'zh' ? '导出工程 (.wavedrom)' : 'Export (.wavedrom)'}</span>
+                  <div className="flex items-center gap-1.5">
+                    <Download className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" />
+                    <span className="text-xs font-bold">{lang === 'zh' ? '导出工程 (.wavedrom)' : 'Export (.wavedrom)'}</span>
+                  </div>
+                  <span className="text-[10px] opacity-80">{lang === 'zh' ? '可随时再次导入还原' : 'Full diagram schema'}</span>
+                </button>
+
+                {/* Copy Project JSON */}
+                <button
+                  type="button"
+                  onClick={handleCopyProjectJson}
+                  className="flex flex-col items-center justify-center gap-1 p-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:border-blue-400 text-slate-700 dark:text-slate-200 rounded-xl transition-all shadow-2xs cursor-pointer group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    {copiedProject ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" />}
+                    <span className="text-xs font-bold">{copiedProject ? (lang === 'zh' ? '已复制到剪贴板' : 'Copied!') : (lang === 'zh' ? '复制工程 JSON' : 'Copy Project JSON')}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">{lang === 'zh' ? '直接粘贴发送给协作者' : 'Shareable JSON object'}</span>
+                </button>
+
+                {/* Export WaveJSON (.json) */}
+                <button
+                  type="button"
+                  onClick={handleDownloadWaveJsonFile}
+                  className="flex flex-col items-center justify-center gap-1 p-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:border-emerald-400 text-slate-700 dark:text-slate-200 rounded-xl transition-all shadow-2xs cursor-pointer group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Download className="w-4 h-4 text-emerald-600 group-hover:-translate-y-0.5 transition-transform" />
+                    <span className="text-xs font-bold">{lang === 'zh' ? '导出 WaveJSON (.json)' : 'Export WaveJSON (.json)'}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">{lang === 'zh' ? '适用于外部 WaveDrom 工具' : 'Compatible with WaveDrom'}</span>
                 </button>
               </div>
-              <p className="text-[11px] text-slate-500">
-                {lang === 'zh'
-                  ? '导出的 .wavedrom 包含所有信号、周期数、边缘箭头打标、时钟周期表头和排版配置，可随时重新导入继续编辑。'
-                  : 'The exported .wavedrom file contains all signals, cycles, annotations, and configs for full recovery.'}
-              </p>
+            </div>
+
+            {/* Import / Drag-Drop Zone */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDraggingFile(true);
+              }}
+              onDragLeave={() => setIsDraggingFile(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all cursor-pointer text-center ${
+                isDraggingFile
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40 scale-[1.01]'
+                  : 'border-slate-300 dark:border-slate-700 hover:border-blue-400 bg-slate-50/50 dark:bg-slate-800/30'
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".wavedrom,.json"
+                onChange={handleImportFile}
+                className="hidden"
+              />
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2">
+                <Upload className="w-5 h-5" />
+              </div>
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                {lang === 'zh' ? '点击选择或将工程文件拖拽到此处打开' : 'Click to select or drop project file here'}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                {lang === 'zh' ? '支持 .wavedrom 完整工程文件与标准 WaveJSON .json 描述' : 'Supports .wavedrom full project and standard WaveJSON .json'}
+              </span>
             </div>
 
             {/* Save Current Project as Reusable Preset Template */}
@@ -420,12 +592,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {lang === 'zh' ? '保存为自定义预设模板' : 'Save as Custom Template'}
+                      {lang === 'zh' ? '存为预设模板库 (Save as Template)' : 'Save as Custom Template'}
                     </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-2">
-                      {lang === 'zh'
-                        ? '将当前工程架构保存到预设库，日后新建工程可一键复用'
-                        : 'Save current structure into template library for quick reuse'}
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-2 hidden sm:inline">
+                      {lang === 'zh' ? '将当前波形结构存入模板库，随时一键复用' : 'Save current design into templates'}
                     </span>
                   </div>
                 </div>
@@ -433,9 +603,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsSavingTemplate(!isSavingTemplate)}
-                  className="text-xs text-purple-600 dark:text-purple-400 font-medium hover:underline cursor-pointer"
+                  className="text-xs text-purple-600 dark:text-purple-400 font-semibold hover:underline cursor-pointer"
                 >
-                  {isSavingTemplate ? (lang === 'zh' ? '收起配置' : 'Collapse') : (lang === 'zh' ? '配置并保存 →' : 'Configure & Save →')}
+                  {isSavingTemplate ? (lang === 'zh' ? '收起配置' : 'Collapse') : (lang === 'zh' ? '保存为模板 →' : 'Save to Templates →')}
                 </button>
               </div>
 
@@ -447,7 +617,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               )}
 
               {isSavingTemplate && (
-                <div className="flex flex-col gap-2.5 pt-2 border-t border-purple-200 dark:border-purple-800/40 text-xs">
+                <div className="flex flex-col gap-2.5 pt-2 border-t border-purple-200 dark:border-purple-800/40 text-xs animate-in fade-in">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="flex flex-col gap-1">
                       <span className="text-[11px] text-slate-500 font-medium">
@@ -458,11 +628,12 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                         onChange={(e) => setTemplateCategory(e.target.value as any)}
                         className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium"
                       >
-                        <option value="Custom">{lang === 'zh' ? '⭐ 自定义预设 (Custom)' : '⭐ Custom'}</option>
+                        <option value="Basic">{lang === 'zh' ? '📁 基础与通用 (Basic)' : '📁 Basic'}</option>
+                        <option value="Custom">{lang === 'zh' ? '⭐ 我的预设 (Custom)' : '⭐ Custom'}</option>
                         <option value="Timing">{lang === 'zh' ? '⏱️ 时序与建立保持 (Timing)' : '⏱️ Timing & Setup/Hold'}</option>
-                        <option value="Serial">{lang === 'zh' ? '📡 串行通信 (SPI/I2C/UART)' : '📡 Serial (SPI/I2C/UART)'}</option>
-                        <option value="Bus">{lang === 'zh' ? '🚌 系统与片上总线 (AXI/AHB)' : '🚌 System Bus (AXI/AHB)'}</option>
-                        <option value="Memory">{lang === 'zh' ? '💾 存储器与高速 (DDR/SRAM)' : '💾 Memory (DDR/SRAM)'}</option>
+                        <option value="Serial">{lang === 'zh' ? '📡 串行通信 (SPI/I2C/UART)' : '📡 Serial'}</option>
+                        <option value="Bus">{lang === 'zh' ? '🚌 系统总线 (AXI/AHB)' : '🚌 System Bus'}</option>
+                        <option value="Memory">{lang === 'zh' ? '💾 存储器与高速 (DDR/SRAM)' : '💾 Memory'}</option>
                         <option value="Clock">{lang === 'zh' ? '⚡ 时钟与控制 (Clock/Reset)' : '⚡ Clock & Reset'}</option>
                       </select>
                     </div>
@@ -475,7 +646,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                         type="text"
                         value={templateDesc}
                         onChange={(e) => setTemplateDesc(e.target.value)}
-                        placeholder={lang === 'zh' ? '选填：如 AXI-Stream 双通道流水线模板' : 'Optional: e.g. AXI-Stream pipeline'}
+                        placeholder={lang === 'zh' ? '选填：如 双通道 SPI 流水线时序' : 'Optional description'}
                         className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
                       />
                     </div>
@@ -495,75 +666,47 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                       className="flex items-center gap-1 px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-xs cursor-pointer transition-colors"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>{lang === 'zh' ? '确认保存到模板库' : 'Save to Templates'}</span>
+                      <span>{lang === 'zh' ? '确认存入模板库' : 'Save to Templates'}</span>
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Open / Import Local File */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Import Card with Drag/Click */}
-              <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 dark:border-blue-900/60 hover:border-blue-500 dark:hover:border-blue-500 rounded-xl bg-blue-50/30 dark:bg-blue-950/20 transition-all cursor-pointer group text-center">
-                <input
-                  type="file"
-                  accept=".wavedrom,.json"
-                  onChange={handleImportFile}
-                  className="hidden"
-                />
-                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                  <Upload className="w-5 h-5" />
-                </div>
-                <span className="text-xs font-bold text-blue-900 dark:text-blue-200">
-                  {lang === 'zh' ? '打开本地工程或代码' : 'Open Local Project / Code'}
-                </span>
-                <span className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-1">
-                  {lang === 'zh' ? '支持 .wavedrom 工程文件与标准 .json 代码' : 'Supports .wavedrom and .json files'}
-                </span>
-              </label>
+            {/* Quick Actions Footer */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-100/70 dark:bg-slate-800/40 rounded-xl text-xs">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveAsCopy}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium cursor-pointer shadow-2xs"
+                  title={lang === 'zh' ? '以当前工程为底稿，建立新副本' : 'Create a duplicate project'}
+                >
+                  <Copy className="w-3.5 h-3.5 text-blue-500" />
+                  <span>{lang === 'zh' ? '另存为新副本工程' : 'Save As Copy'}</span>
+                </button>
+              </div>
 
-              {/* New Project Card */}
-              <div
+              <button
+                type="button"
                 onClick={() => {
                   onNewProject();
                   onClose();
                 }}
-                className="flex flex-col items-center justify-center p-6 border border-slate-200 dark:border-slate-800 hover:border-rose-300 dark:hover:border-rose-700 rounded-xl bg-slate-50 dark:bg-slate-800/40 transition-all cursor-pointer group text-center"
+                className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-100 rounded-lg font-medium cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                  <FilePlus className="w-5 h-5" />
-                </div>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-rose-600 transition-colors">
-                  {lang === 'zh' ? '新建空白工程' : 'New Project'}
-                </span>
-                <span className="text-[10px] text-slate-500 mt-1">
-                  {lang === 'zh' ? '重置当前画布，开启全新的波形设计' : 'Start a fresh timing diagram design'}
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Copy Project Payload */}
-            <div className="flex items-center justify-between p-3 bg-slate-100/70 dark:bg-slate-800/30 rounded-lg text-xs text-slate-600 dark:text-slate-400">
-              <span className="text-[11px]">
-                {lang === 'zh' ? '亦可直接复制工程 JSON 结构分享给团队成员:' : 'Share project JSON directly with teammates:'}
-              </span>
-              <button
-                onClick={handleCopyProjectJson}
-                className="flex items-center gap-1 px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 rounded text-slate-700 dark:text-slate-200 text-xs font-medium cursor-pointer"
-              >
-                {copiedProject ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedProject ? (lang === 'zh' ? '已复制' : 'Copied') : (lang === 'zh' ? '复制工程 JSON' : 'Copy Project JSON')}</span>
+                <FilePlus className="w-3.5 h-3.5" />
+                <span>{lang === 'zh' ? '新建空白工程' : 'New Blank Project'}</span>
               </button>
             </div>
           </div>
         )}
 
-        {/* Tab Content 2: WaveJSON Code (Bidirectional) */}
+        {/* Tab 2: WaveJSON Code (Bidirectional) */}
         {activeTab === 'code' && (
           <div className="flex-1 overflow-hidden flex flex-col p-4">
             {codeParseError && (
-              <div className="flex items-center gap-2 px-4 py-2 mb-2 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-lg">
+              <div className="flex items-center gap-2 px-4 py-2 mb-2 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-lg animate-in fade-in">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{lang === 'zh' ? '代码解析错误: ' : 'Parse error: '}{codeParseError}</span>
               </div>
@@ -572,13 +715,24 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-2 flex items-center justify-between">
               <span>
                 {lang === 'zh'
-                  ? '在下方可直接复制 WaveDrom 原生代码，或粘贴外部 WaveJSON 点击“导入并同步”立即反向生成波形参数:'
-                  : 'Copy native WaveDrom code, or paste WaveJSON and click "Import & Sync":'}
+                  ? '在下方可直接复制 WaveDrom 原生代码，或粘贴外部 WaveJSON 点击“导入并同步”立即反向生成画布:'
+                  : 'Copy native WaveDrom code, or edit and click "Import & Sync":'}
               </span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px]">WaveJSON 标准</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrettifyCode}
+                  className="px-2 py-0.5 text-[11px] rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 cursor-pointer font-medium"
+                >
+                  {lang === 'zh' ? '格式化 Prettify' : 'Prettify'}
+                </button>
+                <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px] bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-900">
+                  WaveJSON 3.0
+                </span>
+              </div>
             </div>
 
-            <div className="flex-1 min-h-[300px] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
+            <div className="flex-1 min-h-[320px] rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col shadow-inner">
               <textarea
                 value={jsonCodeText}
                 onChange={(e) => {
@@ -593,14 +747,16 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={handleCopyCode}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                 >
                   {copiedCode ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedCode ? (lang === 'zh' ? '已复制代码' : 'Copied') : (lang === 'zh' ? '复制 JSON 代码' : 'Copy Code')}</span>
+                  <span>{copiedCode ? (lang === 'zh' ? '已复制代码' : 'Copied') : (lang === 'zh' ? '复制代码' : 'Copy Code')}</span>
                 </button>
                 <button
-                  onClick={handleDownloadCodeJson}
+                  type="button"
+                  onClick={handleDownloadWaveJsonFile}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
@@ -610,12 +766,14 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={onClose}
                   className="px-3.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
                 >
                   {lang === 'zh' ? '取消' : 'Cancel'}
                 </button>
                 <button
+                  type="button"
                   onClick={handleApplyCodeImport}
                   className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors shadow-xs cursor-pointer"
                   title={lang === 'zh' ? '解析并导入代码，同步到波形矩阵与可视化参数' : 'Parse and import code into waveform editor'}
@@ -628,43 +786,65 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </div>
         )}
 
-        {/* Tab Content 3: Snapshots History */}
+        {/* Tab 3: Snapshots History */}
         {activeTab === 'history' && (
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {lang === 'zh' ? '本地自动保存历史快照记录' : 'Local Auto-saved Snapshots'}
-                </span>
-                <span className="text-[11px] text-slate-400">
-                  {lang === 'zh' ? '(系统会在每次修改后自动建立版本点，最多保留 10 个)' : '(Automatically captures up to 10 versions)'}
-                </span>
+            {/* Snapshot Creator Bar */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                <input
+                  type="text"
+                  value={manualSnapshotLabel}
+                  onChange={(e) => setManualSnapshotLabel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleManualCreateSnapshot();
+                  }}
+                  placeholder={lang === 'zh' ? `输入快照名称 (默认: 版本快照 · ${nameInput})` : 'Snapshot label'}
+                  className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={handleManualCreateSnapshot}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shrink-0 cursor-pointer shadow-2xs"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>{lang === 'zh' ? '立即保存快照' : 'Capture Snapshot'}</span>
+                </button>
               </div>
+
               {snapshots.length > 0 && (
                 <button
+                  type="button"
                   onClick={onClearSnapshots}
-                  className="flex items-center gap-1 text-[11px] text-rose-500 hover:text-rose-700 cursor-pointer"
+                  className="flex items-center justify-center gap-1 text-[11px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-2 py-1 rounded cursor-pointer self-end sm:self-center"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>{lang === 'zh' ? '清空历史记录' : 'Clear History'}</span>
+                  <span>{lang === 'zh' ? '清空全部快照' : 'Clear All'}</span>
                 </button>
               )}
             </div>
 
+            {snapshotSuccessNotice && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs rounded-lg animate-in fade-in">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{snapshotSuccessNotice}</span>
+              </div>
+            )}
+
             {snapshots.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-slate-400 text-xs">
                 <History className="w-10 h-10 stroke-1 mb-2 text-slate-300 dark:text-slate-600" />
-                <span>{lang === 'zh' ? '暂无历史快照，在画布上修改信号或周期后将自动记录' : 'No snapshots yet. Changes will be auto-saved here.'}</span>
+                <span>{lang === 'zh' ? '暂无历史快照，点击上方“立即保存快照”或在画布上修改后将自动记录' : 'No snapshots yet. Click Capture Snapshot to save your work.'}</span>
               </div>
             ) : (
               <div className="space-y-2">
                 {snapshots.map((snap) => {
                   const dateStr = new Date(snap.timestamp).toLocaleString();
+                  const relTime = formatRelativeTime(snap.timestamp);
                   return (
                     <div
                       key={snap.id}
-                      className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors"
+                      className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 hover:bg-blue-50/40 dark:hover:bg-slate-800/80 transition-colors"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
@@ -675,26 +855,44 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                             </span>
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono">
                               {lang === 'zh'
-                                ? `${snap.signalsCount} 条信号 · ${snap.totalCycles} 拍周期`
-                                : `${snap.signalsCount} signals · ${snap.totalCycles} cycles`}
+                                ? `${snap.signalsCount} 条信号 · ${snap.totalCycles} 拍`
+                                : `${snap.signalsCount} signals · ${snap.totalCycles} cyc`}
                             </span>
                           </div>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {dateStr}
-                          </span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
+                              {relTime}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              ({dateStr})
+                            </span>
+                          </div>
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          onRestoreSnapshot(snap);
-                          onClose();
-                        }}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors cursor-pointer"
-                      >
-                        <History className="w-3.5 h-3.5" />
-                        <span>{lang === 'zh' ? '还原此版本' : 'Restore'}</span>
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onRestoreSnapshot(snap);
+                            onClose();
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors cursor-pointer"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                          <span>{lang === 'zh' ? '还原此版本' : 'Restore'}</span>
+                        </button>
+                        {onDeleteSnapshot && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteSnapshot(snap.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                            title={lang === 'zh' ? '删除此条快照' : 'Delete snapshot'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

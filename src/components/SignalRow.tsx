@@ -198,13 +198,19 @@ export const SignalRow: React.FC<SignalRowProps> = ({
       <div
         id={`signal_row_${signal.id}`}
         data-signal-id={signal.id}
-        className="scroll-mt-64 flex items-center justify-between px-4 py-2 bg-slate-100/70 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-300 dark:border-slate-700"
+        className="scroll-mt-64 flex items-center justify-between px-3.5 py-2 bg-slate-50/80 dark:bg-slate-900/40 rounded-xl border border-dashed border-slate-300 dark:border-slate-700/80 transition-colors"
       >
-        <span className="text-xs text-slate-400 dark:text-slate-500 font-mono italic">
-          {lang === 'zh'
-            ? '[ 空白隔离行 Spacer / 用于总线或模块视觉分界 ]'
-            : '[ Empty Spacer Row / Visual Separator for Buses or Blocks ]'}
-        </span>
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-200/70 dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300 select-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400" />
+            {lang === 'zh' ? '空白隔离行' : 'Spacer Row'}
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            {lang === 'zh'
+              ? '用于总线或功能模块的视觉分界与间距隔离'
+              : 'Visual separator for buses or functional blocks'}
+          </span>
+        </div>
         <div className="flex items-center gap-1">
           {onMoveToTop && (
             <button
@@ -487,68 +493,75 @@ export const SignalRow: React.FC<SignalRowProps> = ({
         {/* Left Side: Drag Handle + Collapse + Move Controls + Name + Clock Domain + Delay */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Drag Handle (User Request: 支持拖拽信号框上移下移) */}
+          {/* Drag Handle */}
           <div
-            className="cursor-grab active:cursor-grabbing p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded transition-colors"
+            className="cursor-grab active:cursor-grabbing h-7 w-5 inline-flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded transition-colors"
             title={lang === 'zh' ? '按住拖拽上下移动信号位置' : 'Drag to move signal up or down'}
           >
-            <GripVertical className="w-3.5 h-3.5" />
+            <GripVertical className="w-4 h-4" />
           </div>
 
           {/* Collapse/Expand */}
           <button
             type="button"
             onClick={toggleCollapse}
-            className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-500 cursor-pointer"
+            className="h-7 w-7 inline-flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 cursor-pointer transition-colors active:scale-95"
             title={isCollapsed ? t('unfold_all_signals') || '展开波形' : t('fold_all_signals') || '折叠收起'}
           >
-            {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isCollapsed ? '-rotate-90 text-slate-400' : 'rotate-0 text-blue-600 dark:text-blue-400'}`} />
           </button>
 
-          {/* Move Controls: Top, Up, Down, Bottom, Insert */}
-          <div className="flex items-center gap-0.5 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 bg-white dark:bg-slate-800 shadow-2xs mr-0.5">
+          {/* Move Controls: Top, Up, Down, Bottom, Insert - Enriched & Enlarged Target */}
+          <div className="h-7 flex items-center gap-0.5 border border-slate-200 dark:border-slate-700 rounded-lg px-1 bg-white dark:bg-slate-800 shadow-2xs mr-0.5">
             {onMoveToTop && (
               <button
+                type="button"
                 onClick={onMoveToTop}
                 disabled={index === 0}
-                className="p-0.5 hover:bg-blue-50 dark:hover:bg-blue-950 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded disabled:opacity-20 cursor-pointer"
+                className="h-6 w-6 inline-flex items-center justify-center hover:bg-blue-50 dark:hover:bg-blue-950 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md disabled:opacity-20 cursor-pointer transition-colors active:scale-95"
                 title={lang === 'zh' ? '一键置顶到最上方 (Shift to Top)' : 'Shift to top'}
               >
-                <ChevronsUp className="w-3.5 h-3.5" />
+                <ChevronsUp className="w-4 h-4" />
               </button>
             )}
             <button
+              type="button"
               onClick={onMoveUp}
               disabled={index === 0}
-              className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded disabled:opacity-20 cursor-pointer"
-              title={lang === 'zh' ? '上移一行' : 'Move up'}
+              className="h-6 w-6 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white rounded-md disabled:opacity-20 cursor-pointer transition-colors active:scale-95"
+              title={lang === 'zh' ? '上移一行 (Move Up)' : 'Move up'}
             >
-              <ChevronUp className="w-3.5 h-3.5" />
+              <ChevronUp className="w-4 h-4" />
             </button>
             <button
+              type="button"
               onClick={onMoveDown}
               disabled={index === totalSignals - 1}
-              className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 rounded disabled:opacity-20 cursor-pointer"
-              title={lang === 'zh' ? '下移一行' : 'Move down'}
+              className="h-6 w-6 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white rounded-md disabled:opacity-20 cursor-pointer transition-colors active:scale-95"
+              title={lang === 'zh' ? '下移一行 (Move Down)' : 'Move down'}
             >
-              <ChevronDown className="w-3.5 h-3.5" />
+              <ChevronDown className="w-4 h-4" />
             </button>
             {onMoveToBottom && (
               <button
+                type="button"
                 onClick={onMoveToBottom}
                 disabled={index === totalSignals - 1}
-                className="p-0.5 hover:bg-blue-50 dark:hover:bg-blue-950 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded disabled:opacity-20 cursor-pointer"
+                className="h-6 w-6 inline-flex items-center justify-center hover:bg-blue-50 dark:hover:bg-blue-950 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-md disabled:opacity-20 cursor-pointer transition-colors active:scale-95"
                 title={lang === 'zh' ? '一键置底到最下方 (Shift to Bottom)' : 'Shift to bottom'}
               >
-                <ChevronsDown className="w-3.5 h-3.5" />
+                <ChevronsDown className="w-4 h-4" />
               </button>
             )}
             {onInsertBelow && (
               <button
+                type="button"
                 onClick={onInsertBelow}
-                className="p-0.5 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded cursor-pointer border-l border-slate-200 dark:border-slate-700 ml-0.5"
-                title={lang === 'zh' ? '在此信号下方插入新信号' : 'Insert new signal below'}
+                className="h-6 px-1.5 inline-flex items-center gap-1 hover:bg-emerald-50 dark:hover:bg-emerald-950/70 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 rounded-md cursor-pointer border-l border-slate-200 dark:border-slate-700 ml-0.5 pl-1.5 transition-all font-semibold active:scale-95"
+                title={lang === 'zh' ? '在此信号下方插入新信号 (+)' : 'Insert new signal below'}
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline text-[10px] leading-none select-none">{lang === 'zh' ? '插入' : 'Insert'}</span>
               </button>
             )}
           </div>
@@ -877,21 +890,23 @@ export const SignalRow: React.FC<SignalRowProps> = ({
 
           {/* Duplicate Signal Row */}
           <button
+            type="button"
             onClick={onDuplicate}
-            className="h-7 w-7 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
+            className="h-7.5 w-7.5 inline-flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors active:scale-95 shadow-2xs"
             title={lang === 'zh' ? '复制此信号生成新副本' : 'Duplicate signal'}
           >
-            <Copy className="w-3.5 h-3.5" />
+            <Copy className="w-4 h-4" />
           </button>
 
           {/* Delete Signal Row */}
           <button
+            type="button"
             onClick={onDelete}
             disabled={totalSignals <= 1}
-            className="h-7 w-7 inline-flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg text-slate-400 hover:text-rose-600 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-800 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+            className="h-7.5 w-7.5 inline-flex items-center justify-center hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg text-slate-400 hover:text-rose-600 border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-800 disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer transition-colors active:scale-95 shadow-2xs"
             title={lang === 'zh' ? '删除此信号行' : 'Delete signal row'}
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -1083,9 +1098,14 @@ export const SignalRow: React.FC<SignalRowProps> = ({
         </div>
       )}
 
-      {/* Main Expanded Body */}
-      {!isCollapsed && (
-        <div className="px-2.5 py-1.5 flex flex-col gap-1.5">
+      {/* Main Expanded Body with Smooth CSS Grid Accordion Transition */}
+      <div
+        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+          isCollapsed ? 'grid-rows-[0fr] opacity-0 pointer-events-none' : 'grid-rows-[1fr] opacity-100'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-2.5 py-1.5 flex flex-col gap-1.5">
           {/* Direct Wave String Text Editor */}
           {showDirectWaveInput && (
             <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700 animate-in fade-in duration-100">
@@ -1376,8 +1396,9 @@ export const SignalRow: React.FC<SignalRowProps> = ({
               </div>
             </div>
           )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

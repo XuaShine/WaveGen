@@ -71,7 +71,7 @@ import {
 const STORAGE_KEY = 'wavedrom_builder_saved_state_v4';
 
 export default function App() {
-  const defaultTemplate = PROTOCOL_TEMPLATES[0]; // SPI Mode 0
+  const defaultTemplate = PROTOCOL_TEMPLATES[0]; // Blank Canvas Template (空白模板)
 
   // Core WaveDrom Data States
   const [signals, setSignals] = useState<SignalItem[]>(() => {
@@ -153,6 +153,7 @@ export default function App() {
     setCollapsedSignals(next);
   };
 
+
   const [edges, setEdges] = useState<EdgeAnnotation[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -178,7 +179,7 @@ export default function App() {
     } catch (e) {
       console.warn('Could not load saved head', e);
     }
-    return defaultTemplate.head || { text: 'SPI 传输协议时序图', tick: 0, every: 1 };
+    return defaultTemplate.head || { text: '数字时序设计 (Timing Diagram)', tick: 0, every: 1 };
   });
 
   const [foot, setFoot] = useState<HeadFootConfig>(() => {
@@ -191,7 +192,7 @@ export default function App() {
     } catch (e) {
       console.warn('Could not load saved foot', e);
     }
-    return defaultTemplate.foot || { text: '图例: SCLK 上升沿发起采样, 下降沿数据切换', tock: 0 };
+    return defaultTemplate.foot || { text: '', tock: 0 };
   });
 
   const [config, setConfig] = useState<DiagramConfig>(() => {
@@ -389,19 +390,36 @@ export default function App() {
   // Compact preview height toggle
   const [isCompactPreview, setIsCompactPreview] = useState<boolean>(false);
   const waveformSectionRef = useRef<HTMLElement>(null);
-  const [previewHeight, setPreviewHeight] = useState<number>(240);
+  const [navbarHeight, setNavbarHeight] = useState<number>(54);
+  const [previewHeight, setPreviewHeight] = useState<number>(260);
 
   useEffect(() => {
-    if (!waveformSectionRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.contentRect.height > 0) {
-          setPreviewHeight(Math.round(entry.contentRect.height));
-        }
+    const updateHeights = () => {
+      const navEl = document.querySelector('header');
+      if (navEl) {
+        const nh = navEl.offsetHeight;
+        if (nh > 0) setNavbarHeight(nh);
       }
-    });
-    observer.observe(waveformSectionRef.current);
-    return () => observer.disconnect();
+      if (waveformSectionRef.current) {
+        const ph = waveformSectionRef.current.offsetHeight;
+        if (ph > 0) setPreviewHeight(ph);
+      }
+    };
+
+    updateHeights();
+    window.addEventListener('resize', updateHeights);
+    const observer = new ResizeObserver(updateHeights);
+    if (waveformSectionRef.current) {
+      observer.observe(waveformSectionRef.current);
+    }
+    const navEl = document.querySelector('header');
+    if (navEl) {
+      observer.observe(navEl);
+    }
+    return () => {
+      window.removeEventListener('resize', updateHeights);
+      observer.disconnect();
+    };
   }, [layoutMode, isPinned, isCompactPreview, signals, totalCycles]);
 
   // Active drawing brush tool: 'select' (default) or '0', '1', '.', 'p', '=', 'x', 'z', 'node'
@@ -1041,11 +1059,10 @@ export default function App() {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
           // Calculate exact obstruction height from sticky headers
-          const navbarHeight = 49;
           const matrixEl = document.getElementById('signal-matrix-header');
           const matrixHeight =
             isMatrixPinned && matrixEl ? matrixEl.getBoundingClientRect().height : 0;
-          const totalStickyOffset = navbarHeight + matrixHeight + 16;
+          const totalStickyOffset = navbarHeight + (isPinned ? previewHeight : 0) + matrixHeight + 16;
 
           const rect = el.getBoundingClientRect();
           const currentAbsoluteTop = window.pageYOffset + rect.top;
@@ -1345,6 +1362,43 @@ export default function App() {
     handleLoadProject(snap.data);
   };
 
+  // Create manual snapshot
+  const handleCreateSnapshot = (label?: string) => {
+    const newSnap: ProjectSnapshot = {
+      id: `snap_${Date.now()}`,
+      timestamp: Date.now(),
+      label: label || (lang === 'zh' ? `手动快照 (${projectName})` : `Snapshot (${projectName})`),
+      totalCycles,
+      signalsCount: signals.length,
+      data: {
+        signals: JSON.parse(JSON.stringify(signals)),
+        edges: JSON.parse(JSON.stringify(edges)),
+        head: JSON.parse(JSON.stringify(head)),
+        foot: JSON.parse(JSON.stringify(foot)),
+        config: JSON.parse(JSON.stringify(config)),
+        totalCycles,
+      },
+    };
+    const updated = [newSnap, ...snapshots.slice(0, 19)];
+    setSnapshots(updated);
+    try {
+      localStorage.setItem(SNAPSHOTS_STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to save snapshot', e);
+    }
+  };
+
+  // Delete individual snapshot
+  const handleDeleteSnapshot = (id: string) => {
+    const updated = snapshots.filter((s) => s.id !== id);
+    setSnapshots(updated);
+    try {
+      localStorage.setItem(SNAPSHOTS_STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to update snapshots', e);
+    }
+  };
+
   // Clear all snapshots
   const handleClearSnapshots = () => {
     setSnapshots([]);
@@ -1607,9 +1661,10 @@ export default function App() {
             ref={waveformSectionRef}
             className={`transition-all duration-150 ${
               isPinned
-                ? 'sticky top-[49px] z-30 shadow-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl'
+                ? 'sticky z-30 shadow-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl'
                 : 'shadow-xs'
             }`}
+            style={isPinned ? { top: `${navbarHeight}px` } : undefined}
           >
             <WaveformPreview
               waveJson={currentWaveJson}
@@ -1673,13 +1728,13 @@ export default function App() {
                 isMatrixPinned
                   ? layoutMode === 'split'
                     ? 'sticky top-0 z-20 shadow-md backdrop-blur-md bg-white/95 dark:bg-slate-900/95 border-blue-400 dark:border-blue-600 ring-1 ring-blue-400/30'
-                    : 'sticky z-35 shadow-md backdrop-blur-md bg-white/95 dark:bg-slate-900/95 border-blue-400 dark:border-blue-600 ring-1 ring-blue-400/30'
+                    : 'sticky z-[35] shadow-md backdrop-blur-md bg-white/95 dark:bg-slate-900/95 border-blue-400 dark:border-blue-600 ring-1 ring-blue-400/30'
                   : ''
               }`}
               style={
                 isMatrixPinned && layoutMode === 'stacked'
                   ? {
-                      top: isPinned ? `${49 + previewHeight + 8}px` : '49px',
+                      top: isPinned ? `${navbarHeight + previewHeight + 8}px` : `${navbarHeight + 6}px`,
                     }
                   : undefined
               }
@@ -1826,6 +1881,28 @@ export default function App() {
                       {t('pro_mode')}
                     </button>
                   </div>
+
+                  {/* Standalone Sticky Matrix Pin Button (User Request: 移至常用/进阶按钮右侧) */}
+                  <button
+                    type="button"
+                    onClick={handleToggleMatrixPin}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all border shadow-2xs ${
+                      isMatrixPinned
+                        ? 'bg-blue-600 text-white border-blue-600 ring-1 ring-blue-400/30'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                    title={
+                      isMatrixPinned
+                        ? (lang === 'zh' ? '信号总览常驻吸顶: 已开启 (点击取消吸顶)' : 'Sticky Pin: ON (Click to unpin)')
+                        : (lang === 'zh' ? '信号总览常驻吸顶: 已关闭 (点击固定在页面顶部)' : 'Sticky Pin: OFF (Click to pin to top)')
+                    }
+                  >
+                    <Pin className={`w-3.5 h-3.5 ${isMatrixPinned ? 'rotate-45 text-white' : 'text-blue-500'}`} />
+                    <span>{lang === 'zh' ? '常驻吸顶' : 'Sticky Pin'}</span>
+                    {isMatrixPinned && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
+                    )}
+                  </button>
                 </div>
 
                 {/* Right Action Tools Group */}
@@ -1980,30 +2057,6 @@ export default function App() {
                     <span>{globalBrush ? `${lang === 'zh' ? '画笔' : 'Brush'}[${globalBrush}]` : t('continuous_brush')}</span>
                   </button>
 
-                  {/* Standalone Sticky Matrix Pin Button (User Request: 上下布局下把高级工具中的常驻吸顶拿出来单独做一个按钮) */}
-                  {layoutMode === 'stacked' && (
-                    <button
-                      type="button"
-                      onClick={handleToggleMatrixPin}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all border ${
-                        isMatrixPinned
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-2xs ring-2 ring-blue-400/30'
-                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
-                      }`}
-                      title={
-                        isMatrixPinned
-                          ? (lang === 'zh' ? '信号总览常驻吸顶: 已开启 (点击取消吸顶)' : 'Sticky Pin: ON (Click to unpin)')
-                          : (lang === 'zh' ? '信号总览常驻吸顶: 已关闭 (点击固定在页面顶部)' : 'Sticky Pin: OFF (Click to pin to top)')
-                      }
-                    >
-                      <Pin className={`w-3.5 h-3.5 ${isMatrixPinned ? 'rotate-45 text-white' : 'text-blue-500'}`} />
-                      <span>{lang === 'zh' ? '常驻吸顶' : 'Sticky Pin'}</span>
-                      {isMatrixPinned && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
-                      )}
-                    </button>
-                  )}
-
                   {/* Unified Secondary Tools Dropdown (Replaces scattered cluttered buttons) */}
                   <div className="relative">
                     <button
@@ -2071,23 +2124,6 @@ export default function App() {
                           <SlidersHorizontal className="w-4 h-4 text-blue-500 shrink-0" />
                           <span>{t('setup_hold_window')}</span>
                         </button>
-
-                        {layoutMode === 'split' && (
-                          <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between px-2 py-1">
-                            <span className="text-slate-500">{t('sticky_matrix_title')}</span>
-                            <button
-                              type="button"
-                              onClick={handleToggleMatrixPin}
-                              className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer border ${
-                                isMatrixPinned
-                                  ? 'bg-blue-100 text-blue-800 border-blue-300'
-                                  : 'bg-slate-100 text-slate-600 border-slate-200'
-                              }`}
-                            >
-                              {isMatrixPinned ? t('status_enabled') : t('status_disabled')}
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -2595,16 +2631,16 @@ export default function App() {
             </div>
           )}
 
-          {/* Right Column: Rock-solid Real-time WaveDrom Preview (Independent scrolling) */}
+          {/* Right Column: Rock-solid Real-time WaveDrom Preview (Adaptive height with independent scrolling) */}
           {layoutMode === 'split' && (
             <div
-              className="flex flex-col gap-2 shrink-0 min-w-0 w-full lg:w-auto h-full min-h-0 flex-1 overflow-hidden pb-1"
+              className="flex flex-col gap-2 shrink-0 min-w-0 w-full lg:w-auto h-full min-h-0 flex-1 overflow-y-auto pb-1"
               style={{
                 width: `${rightPanePercent}%`,
                 maxWidth: `${rightPanePercent}%`,
               }}
             >
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="min-h-0 flex flex-col shrink-0">
                 <WaveformPreview
                   waveJson={currentWaveJson}
                   skin={config.skin || 'default'}
@@ -2621,7 +2657,7 @@ export default function App() {
                   lockedCycle={lockedCycle}
                   onLockCycleChange={setLockedCycle}
                   totalCycles={totalCycles}
-                  fillHeight={true}
+                  fillHeight={false}
                   layoutMode="split"
                   onToggleLayoutMode={() => {
                     setLayoutMode('stacked');
@@ -2637,7 +2673,7 @@ export default function App() {
 
               {/* Edge / Arrow Annotations Editor at bottom of right column */}
               {edgeEditorPosition === 'right_bottom' && (
-                <div className="shrink-0 pt-0.5 max-h-[42%] overflow-y-auto">
+                <div className="shrink-0 pt-0.5">
                   <EdgeEditor
                     edges={edges}
                     signals={signals}
@@ -2763,6 +2799,8 @@ export default function App() {
         snapshots={snapshots}
         onRestoreSnapshot={handleRestoreSnapshot}
         onClearSnapshots={handleClearSnapshots}
+        onCreateSnapshot={handleCreateSnapshot}
+        onDeleteSnapshot={handleDeleteSnapshot}
         projectName={projectName}
         onUpdateProjectName={handleUpdateProjectName}
       />

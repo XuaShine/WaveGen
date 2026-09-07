@@ -196,17 +196,46 @@ export function postProcessSvgColors(svgEl: SVGElement, skinName: string): void 
   }
 }
 
-function getFamilyString(fam?: string): string {
-  if (fam === 'monospace') {
-    return 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+export function getFamilyString(fam?: string): string {
+  switch (fam) {
+    case 'monospace':
+      return 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+    case 'jetbrains-mono':
+      return '"JetBrains Mono", "Fira Code", Menlo, Monaco, Consolas, monospace';
+    case 'fira-code':
+      return '"Fira Code", "JetBrains Mono", Menlo, Monaco, Consolas, monospace';
+    case 'consolas':
+      return 'Consolas, "Courier New", Courier, monospace';
+    case 'source-code-pro':
+      return '"Source Code Pro", Consolas, "Courier New", monospace';
+    case 'courier':
+      return '"Courier New", Courier, monospace';
+    case 'sans-serif':
+      return 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+    case 'inter':
+      return '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    case 'roboto':
+      return '"Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+    case 'segoe-ui':
+      return '"Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif';
+    case 'arial':
+      return 'Arial, "Helvetica Neue", Helvetica, sans-serif';
+    case 'chinese-sans':
+      return '"PingFang SC", "Microsoft YaHei", "Source Han Sans CN", "Noto Sans SC", "SimHei", system-ui, sans-serif';
+    case 'serif':
+      return 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif';
+    case 'times':
+      return '"Times New Roman", Times, Georgia, serif';
+    case 'georgia':
+      return 'Georgia, Cambria, "Times New Roman", serif';
+    case 'system-ui':
+      return 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    default:
+      if (fam && fam !== 'default') {
+        return fam;
+      }
+      return 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
   }
-  if (fam === 'serif') {
-    return 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif';
-  }
-  if (fam === 'sans-serif') {
-    return 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
-  }
-  return 'system-ui, sans-serif';
 }
 
 /**

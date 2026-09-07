@@ -289,10 +289,29 @@ export type WaveSkin =
   | 'narrow'
   | 'narrower';
 
+export type WaveformFontFamily =
+  | 'monospace'
+  | 'jetbrains-mono'
+  | 'fira-code'
+  | 'consolas'
+  | 'source-code-pro'
+  | 'courier'
+  | 'sans-serif'
+  | 'inter'
+  | 'roboto'
+  | 'segoe-ui'
+  | 'arial'
+  | 'chinese-sans'
+  | 'serif'
+  | 'times'
+  | 'georgia'
+  | 'system-ui'
+  | string;
+
 export interface FontSectionConfig {
   fontSize: number;
   fontWeight: '400' | '500' | '700' | '900';
-  fontFamily: 'monospace' | 'sans-serif' | 'serif' | 'system-ui';
+  fontFamily: WaveformFontFamily;
   customColor: string;
   useCustomColor: boolean;
 }
@@ -300,7 +319,7 @@ export interface FontSectionConfig {
 export interface WaveformFontConfig {
   fontSize: number;
   fontWeight: '400' | '500' | '700' | '900';
-  fontFamily: 'monospace' | 'sans-serif' | 'serif' | 'system-ui';
+  fontFamily: WaveformFontFamily;
   customColor: string;
   useCustomColor: boolean;
 
@@ -384,7 +403,7 @@ export type WaveDromObject = WaveJson;
 export interface ProtocolTemplate {
   id: string;
   name: string;
-  category: 'Bus' | 'Serial' | 'Memory' | 'Clock' | 'Control' | 'Timing';
+  category: 'Basic' | 'Bus' | 'Serial' | 'Memory' | 'Clock' | 'Control' | 'Timing' | 'Custom';
   description: string;
   totalCycles: number;
   signals: SignalItem[];

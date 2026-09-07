@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Plus,
   Trash2,
@@ -64,6 +64,52 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
   const [target, setTarget] = useState('b');
   const [arrow, setArrow] = useState<EdgeAnnotation['arrow']>('~>');
   const [label, setLabel] = useState('');
+
+  // User Request: 切换时保持大小不变，同时支持框大小可调节
+  const [editorHeight, setEditorHeight] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('wavedrom_edge_editor_height');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val) && val >= 180 && val <= 800) return val;
+      }
+    } catch {}
+    return 280;
+  });
+
+  const isDraggingRef = useRef(false);
+  const startYRef = useRef(0);
+  const startHRef = useRef(0);
+
+  const handleStartResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    startYRef.current = e.clientY;
+    startHRef.current = editorHeight;
+
+    const onMouseMove = (moveEvt: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      // Handle is at the top of EdgeEditor: dragging UP increases height
+      const delta = startYRef.current - moveEvt.clientY;
+      const nextH = Math.max(180, Math.min(800, startHRef.current + delta));
+      setEditorHeight(nextH);
+    };
+
+    const onMouseUp = () => {
+      isDraggingRef.current = false;
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      setEditorHeight((currentH) => {
+        try {
+          localStorage.setItem('wavedrom_edge_editor_height', String(currentH));
+        } catch {}
+        return currentH;
+      });
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   // Collect all existing nodes with signal & cycle metadata
   const existingNodesList = useMemo(() => {
@@ -148,18 +194,45 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
 
   return (
     <div
-      className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden transition-all ${className}`}
+      className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden flex flex-col ${className}`}
+      style={isOpen ? { height: `${editorHeight}px` } : undefined}
     >
-      {/* Header - Compact and clear with position toggle */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800">
+      {/* Top Draggable Resize Handle (User Request: 把手移动到顶部) */}
+      {isOpen && (
+        <div
+          onMouseDown={handleStartResize}
+          onDoubleClick={() => {
+            setEditorHeight(280);
+            try {
+              localStorage.setItem('wavedrom_edge_editor_height', '280');
+            } catch {}
+          }}
+          className="h-3 w-full bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 hover:bg-purple-50 dark:hover:bg-purple-950/50 flex items-center justify-center cursor-row-resize select-none shrink-0 group transition-colors"
+          title={
+            lang === 'zh'
+              ? '按住向上/向下拖拽调节框大小，双击恢复默认高度 (280px)'
+              : 'Drag up/down to resize panel, double click to reset (280px)'
+          }
+        >
+          <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-purple-500 transition-colors" />
+        </div>
+      )}
+
+      {/* Header - Compact and clear with position toggle (shrink-0) */}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 shrink-0 select-none">
         <div className="flex items-center gap-2 shrink-0">
           <CornerDownRight className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
           <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
             {lang === 'zh' ? '时序连线与跨拍标注' : 'Timing Edges & Node Annotations'}
           </span>
-          <span className="text-[10px] bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 px-1.5 py-0.2 rounded-full font-mono font-bold">
-            {edges.length} {lang === 'zh' ? '线' : 'edges'} · {existingNodesList.length} {lang === 'zh' ? '点' : 'nodes'}
-          </span>
+          {/* User Request: 2 线 · 4 点这个字体可视度不好，换一个 */}
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 border border-purple-200 dark:border-purple-700/80 text-xs font-medium shadow-2xs select-none">
+            <span className="font-bold text-purple-900 dark:text-purple-100 font-mono">{edges.length}</span>
+            <span className="text-purple-700 dark:text-purple-300 font-semibold">{lang === 'zh' ? '线' : 'edges'}</span>
+            <span className="text-purple-300 dark:text-purple-600 font-bold">·</span>
+            <span className="font-bold text-indigo-900 dark:text-indigo-100 font-mono">{existingNodesList.length}</span>
+            <span className="text-indigo-700 dark:text-indigo-300 font-semibold">{lang === 'zh' ? '点' : 'nodes'}</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
@@ -215,15 +288,15 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
       </div>
 
       {isOpen && (
-        <div className="p-2.5 flex flex-col gap-2 text-xs">
-          {/* Subheader: Mode tabs & Quick Presets in one line */}
-          <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {/* Subheader: Mode tabs & Quick Presets & Height presets (shrink-0) */}
+          <div className="flex flex-wrap items-center justify-between gap-1.5 px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800 shrink-0 select-none">
             {/* Compact Tabs */}
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
               <button
                 type="button"
                 onClick={() => setActiveTab('edges')}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                className={`flex items-center gap-1 px-2.5 py-0.5 rounded cursor-pointer transition-colors ${
                   activeTab === 'edges'
                     ? 'bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-300 shadow-2xs font-bold'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -235,7 +308,7 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('nodes')}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                className={`flex items-center gap-1 px-2.5 py-0.5 rounded cursor-pointer transition-colors ${
                   activeTab === 'nodes'
                     ? 'bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-300 shadow-2xs font-bold'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -245,7 +318,33 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
                 <span>{lang === 'zh' ? `节点打标 (${existingNodesList.length})` : `Nodes (${existingNodesList.length})`}</span>
               </button>
             </div>
+
+            {/* Quick Height presets */}
+            <div className="flex items-center gap-1 text-[10px] text-slate-400">
+              <span className="hidden sm:inline font-medium">{lang === 'zh' ? '高度预设:' : 'Height:'}</span>
+              {[220, 280, 380, 500].map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => {
+                    setEditorHeight(h);
+                    try { localStorage.setItem('wavedrom_edge_editor_height', String(h)); } catch {}
+                  }}
+                  className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                    Math.abs(editorHeight - h) < 15
+                      ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-bold'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500'
+                  }`}
+                  title={lang === 'zh' ? `设为 ${h}px 高度` : `Set height to ${h}px`}
+                >
+                  {h}px
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Scrollable Tab Content Viewport - Constant Height across tabs */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-2.5 flex flex-col gap-2 text-xs">
 
           {/* Tab 1: Timing Edges Form & Chips */}
           {activeTab === 'edges' && (
@@ -488,6 +587,7 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
               </div>
             </div>
           )}
+          </div>
         </div>
       )}
     </div>
