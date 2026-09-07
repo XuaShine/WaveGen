@@ -498,6 +498,7 @@ export default function App() {
   // Global Continuous Brush & Clipboard States (Moved to Signal Timing Matrix toolbar)
   const [globalBrush, setGlobalBrush] = useState<string | null>(null);
   const [globalCopiedSymbol, setGlobalCopiedSymbol] = useState<string | null>(null);
+  const [isRightPanelsResizing, setIsRightPanelsResizing] = useState<boolean>(false);
   const [isMatrixPinned, setIsMatrixPinned] = useState<boolean>(() => {
     try {
       return localStorage.getItem('wavedrom_matrix_pinned') === 'true';
@@ -1835,8 +1836,8 @@ export default function App() {
               className={`px-3 py-2 rounded-xl transition-all flex flex-col gap-1.5 ${
                 isMatrixPinned
                   ? layoutMode === 'split'
-                    ? 'sticky top-0 z-30 shadow-[0_6px_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] bg-white dark:bg-slate-900 border border-blue-400/80 dark:border-blue-500/80 ring-1 ring-blue-400/20'
-                    : 'sticky z-30 shadow-[0_6px_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] bg-white dark:bg-slate-900 border border-blue-400/80 dark:border-blue-500/80 ring-1 ring-blue-400/20'
+                    ? 'sticky top-0 z-35 shadow-[0_6px_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] bg-white dark:bg-slate-900 border border-blue-400/80 dark:border-blue-500/80 ring-1 ring-blue-400/20'
+                    : 'sticky z-35 shadow-[0_6px_24px_-4px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.5)] bg-white dark:bg-slate-900 border border-blue-400/80 dark:border-blue-500/80 ring-1 ring-blue-400/20'
                   : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs'
               }`}
               style={
@@ -2472,38 +2473,10 @@ export default function App() {
                     ))}
                 </div>
               </div>
-
-              {/* Global Cycle Scale Ruler (Suggestion 2: Always visible on sticky overview, interactive hover/lock) */}
-              <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] select-none">
-                <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-full">
-                  <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0 px-1 py-0.5 bg-blue-50 dark:bg-blue-950/60 rounded border border-blue-200 dark:border-blue-900/50">
-                    {lang === 'zh' ? '时钟标尺' : 'Scale'}:
-                  </span>
-                  {Array.from({ length: totalCycles }).map((_, cIdx) => (
-                    <button
-                      key={`matrix_cycle_${cIdx}`}
-                      type="button"
-                      onClick={() => setLockedCycle(lockedCycle === cIdx ? null : cIdx)}
-                      onMouseEnter={() => setHoveredCycle(cIdx)}
-                      onMouseLeave={() => setHoveredCycle(null)}
-                      className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold cursor-pointer transition-colors shrink-0 ${
-                        lockedCycle === cIdx
-                          ? 'bg-blue-600 text-white'
-                          : hoveredCycle === cIdx
-                          ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-                      }`}
-                      title={lang === 'zh' ? `第 T${cIdx} 拍 (点击锁定为基准沿)` : `Cycle T${cIdx} (Click to lock reference edge)`}
-                    >
-                      T{cIdx}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
-            {/* List of Signal Rows with Visual Grouping Brackets (Compact Gap) */}
-            <div className="flex flex-col gap-1.5">
+            {/* List of Signal Rows with Visual Grouping Brackets (Compact Gap, Isolated Stacking Context) */}
+            <div className="flex flex-col gap-1.5 relative z-10 isolate">
               {signalListGroups.map((groupItem, gIdx) => {
                 if (groupItem.type === 'standalone') {
                   const { signal: sig, originalIndex } = groupItem;
@@ -2809,6 +2782,8 @@ export default function App() {
                   onSetSplitRatio={handleSetRatioPreset}
                   onHeightChange={handleWaveformHeightChange}
                   onToggleFillHeight={handleToggleWaveformFill}
+                  isExternalDragging={isRightPanelsResizing}
+                  onDragStateChange={setIsRightPanelsResizing}
                 />
               </div>
 
@@ -2834,6 +2809,8 @@ export default function App() {
                     isOpen={isEdgeEditorOpen}
                     onToggleOpen={setIsEdgeEditorOpen}
                     onResetBalanceHeight={handleResetBalanceHeight}
+                    isExternalDragging={isRightPanelsResizing}
+                    onDragStateChange={setIsRightPanelsResizing}
                   />
                 </div>
               )}

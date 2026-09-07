@@ -126,11 +126,18 @@ export const CycleCell: React.FC<CycleCellProps> = ({
       }
     };
 
+    const handleScroll = () => {
+      setShowPicker(false);
+      setShowNodeModal(false);
+    };
+
     if (showPicker || showNodeModal) {
       document.addEventListener('mousedown', handleDocumentClick);
+      window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
     }
     return () => {
       document.removeEventListener('mousedown', handleDocumentClick);
+      window.removeEventListener('scroll', handleScroll, { capture: true });
     };
   }, [showPicker, showNodeModal]);
 

@@ -60,6 +60,8 @@ interface WaveformPreviewProps {
   onSetSplitRatio?: (ratio: number) => void;
   onHeightChange?: (height: number, totalPreviewHeight?: number) => void;
   onToggleFillHeight?: (isFill: boolean) => void;
+  isExternalDragging?: boolean;
+  onDragStateChange?: (isDragging: boolean) => void;
 }
 
 const HEIGHT_PRESETS = [
@@ -96,6 +98,8 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
   onSetSplitRatio,
   onHeightChange,
   onToggleFillHeight,
+  isExternalDragging = false,
+  onDragStateChange,
 }) => {
   const { t, lang } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -442,6 +446,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
     (e: React.MouseEvent) => {
       e.preventDefault();
       setIsDragging(true);
+      onDragStateChange?.(true);
       const startY = e.clientY;
       const initialHeight = viewportRef.current?.clientHeight || customHeight;
       updateHeightMode('custom');
@@ -474,6 +479,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
 
       const onMouseUp = () => {
         setIsDragging(false);
+        onDragStateChange?.(false);
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
         if (rafId !== null) {
@@ -491,7 +497,7 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
       window.addEventListener('mousemove', onMouseMove);
       window.addEventListener('mouseup', onMouseUp);
     },
-    [customHeight]
+    [customHeight, onDragStateChange, onHeightChange]
   );
 
   // Wheel handling: Ctrl/Cmd + Wheel to zoom smoothly, otherwise smooth vertical scrolling
@@ -502,8 +508,12 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        setZoom((z) => Math.max(0.4, Math.min(2.5, Number((z + delta).toFixed(2)))));
+        // Crucial: Deactivate auto-fit immediately so container ResizeObserver doesn't snap back or shrink zoom
+        setIsAutoFit(false);
+        // Correct zoom direction: deltaY < 0 (scrolling up/pinch out) = Zoom In (+); deltaY > 0 (scrolling down/pinch in) = Zoom Out (-)
+        const step = Math.abs(e.deltaY) > 50 ? 0.12 : 0.06;
+        const delta = e.deltaY < 0 ? step : -step;
+        setZoom((z) => Math.max(0.2, Math.min(3.0, Number((z + delta).toFixed(2)))));
       }
     };
 
@@ -586,8 +596,8 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
       ? { height: 'auto', minHeight: '180px', maxHeight: '85vh' }
       : { height: `${customHeight}px`, minHeight: '140px', maxHeight: `${customHeight}px` };
 
-  // Smooth animation transition style (Suggestion 1: smooth easing except during active drag)
-  const viewportTransitionStyle: React.CSSProperties = isDragging
+  // Smooth animation transition style (zero lag when actively dragging either panel)
+  const viewportTransitionStyle: React.CSSProperties = isDragging || isExternalDragging
     ? { transition: 'none' }
     : { transition: 'height 240ms cubic-bezier(0.16, 1, 0.3, 1), max-height 240ms cubic-bezier(0.16, 1, 0.3, 1)' };
 
@@ -942,16 +952,18 @@ export const WaveformPreview: React.FC<WaveformPreviewProps> = ({
               isTaller ? 'items-center justify-start flex-col pt-2' : 'items-center justify-center'
             }`}>
               <div
-                className="relative transition-[width,height] duration-150 ease-out m-auto shrink-0"
+                className={`relative m-auto shrink-0 ${
+                  isDragging || isExternalDragging ? '' : 'transition-[width,height] duration-150 ease-out'
+                }`}
                 style={{
                   width: svgMetrics?.svgWidth ? `${Math.round(svgMetrics.svgWidth * zoom)}px` : 'auto',
                   height: svgMetrics?.svgHeight ? `${Math.round(svgMetrics.svgHeight * zoom)}px` : 'auto',
                 }}
               >
             <div
-              className={`absolute top-0 left-0 origin-top-left transition-transform duration-150 ease-out select-none ${
-                showGuideline ? 'cursor-crosshair' : ''
-              }`}
+              className={`absolute top-0 left-0 origin-top-left select-none ${
+                isDragging || isExternalDragging ? '' : 'transition-transform duration-150 ease-out'
+              } ${showGuideline ? 'cursor-crosshair' : ''}`}
               style={{
                 width: svgMetrics?.svgWidth ? `${svgMetrics.svgWidth}px` : 'auto',
                 height: svgMetrics?.svgHeight ? `${svgMetrics.svgHeight}px` : 'auto',

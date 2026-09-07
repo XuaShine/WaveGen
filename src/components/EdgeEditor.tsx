@@ -35,6 +35,8 @@ interface EdgeEditorProps {
   isOpen?: boolean;
   onToggleOpen?: (open: boolean) => void;
   onResetBalanceHeight?: () => void;
+  isExternalDragging?: boolean;
+  onDragStateChange?: (isDragging: boolean) => void;
 }
 
 const ARROW_TYPES: Array<{ value: EdgeAnnotation['arrow']; labelZh: string; labelEn: string; descZh: string; descEn: string }> = [
@@ -66,6 +68,8 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
   isOpen: propsIsOpen,
   onToggleOpen,
   onResetBalanceHeight,
+  isExternalDragging = false,
+  onDragStateChange,
 }) => {
   const { lang } = useI18n();
   const [internalIsOpen, setInternalIsOpen] = useState(true);
@@ -118,11 +122,15 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
     e.preventDefault();
     isDraggingRef.current = true;
     setIsDragging(true);
+    onDragStateChange?.(true);
     startYRef.current = e.clientY;
     startHRef.current = editorHeight;
 
     let rafId: number | null = null;
     let pendingH = editorHeight;
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'row-resize';
 
     const onMouseMove = (moveEvt: MouseEvent) => {
       if (!isDraggingRef.current) return;
@@ -142,6 +150,9 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
     const onMouseUp = () => {
       isDraggingRef.current = false;
       setIsDragging(false);
+      onDragStateChange?.(false);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
       if (rafId !== null) cancelAnimationFrame(rafId);
       setEditorHeight(pendingH);
       window.removeEventListener('mousemove', onMouseMove);
@@ -269,7 +280,7 @@ export const EdgeEditor: React.FC<EdgeEditorProps> = ({
       className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden flex flex-col ${className}`}
       style={{
         height: `${editorHeight}px`,
-        transition: isDragging ? 'none' : 'height 240ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transition: (isDragging || isExternalDragging) ? 'none' : 'height 240ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
       {/* Top Draggable Resize Handle (User Request: 把手移动到顶部) */}
