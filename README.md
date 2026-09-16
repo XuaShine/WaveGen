@@ -4,6 +4,13 @@ WaveGen 是一款专为数字集成电路（IC）、FPGA、嵌入式硬件与通
 
 ---
 
+# 📥 下载安装包
+
+点击下方链接即可直接下载 Windows 安装包：
+
+[👉 点击下载 WaveGen 安装包](https://github.com/XuaShine/WaveGen/releases/latest/download/WaveGen Setup 1.0.1.exe)
+---
+
 ## 目录 (Table of Contents)
 
 1. [快速上手 (Quick Start)](#1-快速上手-quick-start)
