@@ -47,13 +47,13 @@ Click the link below to download the Windows installation package directly:
    - [WaveDrom JSON 双向导入导出](#wavedrom-json-双向导入导出)
    - [矢量 SVG 导出与高清 PNG 导出](#矢量-svg-导出与高清-png-导出)
 7. [皮肤与个性化 (Skin & Personalition))](#7-皮肤与个性化-skin--personalition)
-   - [界面风格](#界面风格)
-   - [波形图风格](#波形图风格)
-   - [图文与字体](#图文与字体)
-   - [周期标尺](#周期标尺)
-   - [左右分屏](#左右分屏)
-   - [使用指南](#使用指南)
-   - [语言](#语言)
+   - [界面风格 (UI Style)](#界面风格)
+   - [波形图风格 (WaveGen Style)](#波形图风格)
+   - [图文与字体 (Text & Fonts)](#图文与字体)
+   - [周期标尺 (Cycle Ruler)](#周期标尺)
+   - [视图切换 (View Switching)](#视图切换)
+   - [使用指南 (User Guide)](#使用指南)
+   - [语言 (Language)](#语言)
 9. [高效快捷操作列表 (Shortcuts & Tips)](#8-高效快捷操作列表-shortcuts--tips)
 10. [常见问题排查 (FAQ)](#9-常见问题排查-faq)
 
@@ -327,7 +327,7 @@ WaveGen 专为出版级硬件文档设计，支持分离的字体渲染配置：
 | **常用步长与分频预设** | 自由选择拍数显示步长与分频预设。 |
 | **完全自定义刻度文本** | 支持输入任意自定义状态字或时间戳，如 "START ADDR DATA1 DATA2 STOP"，将完全覆盖标准递增数字，以空格分割。 |
 
-### 左右分屏
+### 视图切换
 
 点击顶部**左右分屏**或**上下视图**，切换左右布局或上下布局。
 
