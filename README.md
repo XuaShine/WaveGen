@@ -36,8 +36,15 @@ WaveGen 是一款专为数字集成电路（IC）、FPGA、嵌入式硬件与通
    - [WaveDrom JSON 双向导入导出](#wavedrom-json-双向导入导出)
    - [矢量 SVG 导出与高清 PNG 导出](#矢量-svg-导出与高清-png-导出)
 7. [皮肤与个性化 (Skin & Personalition))](#7-皮肤与个性化-skin--personalition)
-8. [高效快捷操作列表 (Shortcuts & Tips)](#8-高效快捷操作列表-shortcuts--tips)
-9. [常见问题排查 (FAQ)](#9-常见问题排查-faq)
+   - [界面风格](#界面风格)
+   - [WaveDrom波形图风格](#WaveDrom波形图风格)
+   - [图文与字体](#图文与字体)
+   - [周期标尺](#周期标尺)
+   - [左右分屏](#左右分屏)
+   - [使用指南](#使用指南)
+   - [中/EN](#中/EN)
+9. [高效快捷操作列表 (Shortcuts & Tips)](#8-高效快捷操作列表-shortcuts--tips)
+10. [常见问题排查 (FAQ)](#9-常见问题排查-faq)
 
 ---
 
