@@ -7,7 +7,6 @@ WaveGen 是一款专为数字集成电路（IC）、FPGA、嵌入式硬件与通
 ## 目录 (Table of Contents)
 
 1. [快速上手 (Quick Start)](#1-快速上手-quick-start)
-   - [Web 在线版](#web-在线版)
    - [本地桌面客户端安装 (Windows / macOS)](#本地桌面客户端安装-windows--macos)
    - [本地源码开发构建](#本地源码开发构建)
 2. [界面工作区概览 (Workspace Layout)](#2-界面工作区概览-workspace-layout)
@@ -43,14 +42,13 @@ WaveGen 是一款专为数字集成电路（IC）、FPGA、嵌入式硬件与通
 
 ## 1. 快速上手 (Quick Start)
 
-### Web 在线版
-无需安装任何环境，直接在现代浏览器（Chrome、Edge、Firefox、Safari）中打开应用链接即可开始设计。支持本地离线编辑与自动状态保存。
-
 ### 本地桌面客户端安装 (Windows / macOS)
 本项目支持基于 Electron 打包为独立的本地桌面客户端：
 1. 前往 GitHub 仓库的 **Releases** 或 **Actions** 页面。
 2. 下载最新版本安装包（如 `WaveGen Setup 1.0.1.exe`）。
 3. 运行安装程序完成安装，桌面端享受离线文件读写与独立窗口工作流。
+
+或者直接下载仓库中的app目录中的压缩包至本地解压缩后安装，注意由于windows保护在安装前需要右键安装包选择属性，勾选解除锁定后进行安装。
 
 ### 本地源码开发构建
 ```bash
