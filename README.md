@@ -1,10 +1,14 @@
-# WaveGen - 硬件时序图可视化设计与波形生成器用户指南 (User Guide)
+# WaveGen - Hardware Timing Diagram Visual Design & Waveform Generator User Guide (硬件时序图可视化设计与波形生成器用户指南)
+
+WaveGen is a **modern timing waveform visual design tool** tailored for digital integrated circuit (IC), FPGA, embedded hardware, and communication protocol engineers. It is fully compatible with the standard [WaveDrom](https://wavedrom.com/) specification, offering purely graphical WYSIWYG timing matrix editing, rich cross-cycle constraint connection annotations, multi-domain clock baseline alignment calculations, and publication-grade vector layout export capabilities.
 
 WaveGen 是一款专为数字集成电路（IC）、FPGA、嵌入式硬件与通信协议工程师打造的**现代化时序波形可视化设计工具**。它完全兼容标准 [WaveDrom](https://wavedrom.com/) 规范，提供纯图形化所见即所得的时序矩阵编辑、丰富的跨拍约束连线标注、多时钟域时基对齐计算以及论文级矢量排版导出能力。
 
 ---
 
-# 📥 下载安装包
+# 📥 Download Installation Package（下载安装包）
+
+Click the link below to download the Windows installation package directly:
 
 点击下方链接即可直接下载 Windows 安装包：
 
@@ -28,11 +32,11 @@ WaveGen 是一款专为数字集成电路（IC）、FPGA、嵌入式硬件与通
    - [周期管理与流水线打拍 (+1D)](#周期管理与流水线打拍-1d)
    - [智能收起静止周期 (Smart Fold Cycles)](#智能收起静止周期-smart-fold-cycles)
    - [信号卡片管理 (重命名、排序、分组、颜色)](#信号卡片管理)
-4. [四种文本标注与时序约束展示 (Text & Annotations)](#4-四种文本标注与时序约束展示-text--annotations)
-   - [方式一：跨拍时序连线与箭头长文本 (Edge Arrow)](#方式一跨拍时序连线与箭头长文本-edge-arrow)
-   - [方式二：阶段说明轨 (Phase Text Track)](#方式二阶段说明轨-phase-text-track)
-   - [方式三：总线数据块文字 (Bus Data Tokens)](#方式三总线数据块文字-bus-data-tokens)
-   - [方式四：全局标题与底部图注 (Head / Foot Notes)](#方式四全局标题与底部图注-head--foot-notes)
+4. [文本标注与时序约束展示 (Text & Annotations)](#4-文本标注与时序约束展示-text--annotations)
+   - [跨拍时序连线与箭头长文本 (Edge Arrow)](#跨拍时序连线与箭头长文本-edge-arrow)
+   - [阶段说明轨 (Phase Text Track)](#阶段说明轨-phase-text-track)
+   - [总线数据块文字 (Bus Data Tokens)](#总线数据块文字-bus-data-tokens)
+   - [全局标题与底部图注 (Head / Foot Notes)](#全局标题与底部图注-head--foot-notes)
 5. [高级时钟与排版工具 (Advanced Timing Tools)](#5-高级时钟与排版工具-advanced-timing-tools)
    - [多时钟域 (CDC) 物理时间对齐与时基计算器](#多时钟域-cdc-物理时间对齐与时基计算器)
    - [周期标尺设置 (Timing Ruler Config)](#周期标尺设置-timing-ruler-config)
@@ -44,12 +48,12 @@ WaveGen 是一款专为数字集成电路（IC）、FPGA、嵌入式硬件与通
    - [矢量 SVG 导出与高清 PNG 导出](#矢量-svg-导出与高清-png-导出)
 7. [皮肤与个性化 (Skin & Personalition))](#7-皮肤与个性化-skin--personalition)
    - [界面风格](#界面风格)
-   - [WaveDrom波形图风格](#WaveDrom波形图风格)
+   - [波形图风格](#波形图风格)
    - [图文与字体](#图文与字体)
    - [周期标尺](#周期标尺)
    - [左右分屏](#左右分屏)
    - [使用指南](#使用指南)
-   - [中/EN](#中/EN)
+   - [语言](#语言)
 9. [高效快捷操作列表 (Shortcuts & Tips)](#8-高效快捷操作列表-shortcuts--tips)
 10. [常见问题排查 (FAQ)](#9-常见问题排查-faq)
 
@@ -58,29 +62,33 @@ WaveGen 是一款专为数字集成电路（IC）、FPGA、嵌入式硬件与通
 ## 1. 快速上手 (Quick Start)
 
 ### 本地桌面客户端安装 (Windows / macOS)
-本项目支持基于 Electron 打包为独立的本地桌面客户端：
-1. 前往 GitHub 仓库的 **Releases** 或 **Actions** 页面。
-2. 下载最新版本安装包（如 `WaveGen Setup 1.0.1.exe`）。
-3. 运行安装程序完成安装，桌面端享受离线文件读写与独立窗口工作流。
+This project supports packaging into an independent local desktop client based on Electron:
 
-或者直接下载仓库中的app目录中的压缩包至本地解压缩后安装，注意由于windows保护在安装前需要右键安装包选择属性，勾选解除锁定后进行安装。
+本项目支持基于 Electron 打包为独立的本地桌面客户端：
+
+
+1. 前往 GitHub 仓库的 **Releases** 或 **Actions** 页面。/ Go to the **Releases** or **Actions** page of the GitHub repository.
+2. 下载最新版本安装包（如 `WaveGen Setup 1.0.1.exe`）。/ Download the latest version installation package (e.g., `WaveGen Setup 1.0.1.exe`).
+3. 运行安装程序完成安装，桌面端享受离线文件读写与独立窗口工作流。/ Run the installer to complete the installation and enjoy offline file reading/writing and independent window workflows on the desktop.
+
+注意由于windows保护在安装前需要右键安装包选择属性，勾选解除锁定后进行安装。Note: Due to Windows protection, before installation, you need to right-click the installation package, select **Properties**, check **Unblock**, and then proceed with the installation.
 
 ### 本地源码开发构建
 ```bash
-# 1. 克隆代码仓库
+# 1. 克隆代码仓库/ Clone the code repository
 git clone https://github.com/your-repo/WaveGen.git
 cd WaveGen
 
-# 2. 安装项目依赖
+# 2. 安装项目依赖/ Install project dependencies
 npm install
 
-# 3. 启动本地开发服务 (支持 HMR 热更新)
+# 3. 启动本地开发服务 (支持 HMR 热更新)/ Start local dev server (supports HMR hot reload)
 npm run dev
 
-# 4. 生产环境构建
+# 4. 生产环境构建/ Build for production
 npm run build
 
-# 5. 打包本地 Windows 桌面安装包 (Electron)
+# 5. 打包本地 Windows 桌面安装包 (Electron)/ Package local Windows desktop app (Electron)
 npm run package:win
 ```
 
@@ -177,11 +185,11 @@ WaveGen 严格遵循 WaveDrom 渲染标准，支持所有标准电平与硬件�
 
 ---
 
-## 4. 四种文本标注与时序约束展示 (Text & Annotations)
+## 4. 文本标注与时序约束展示 (Text & Annotations)
 
 在数字时序图中，经常需要标明“建立时间 $\ge 2.5\text{ns}$”、“ACK 应答握手”、“空闲/传输/校验阶段”等文字。WaveGen 提供了完善的 4 种长文本标注支持：
 
-### 方式一：跨拍时序连线与箭头长文本 (Edge Arrow)
+### 跨拍时序连线与箭头长文本 (Edge Arrow)
 适用于标注**时序约束**（$t_{su}$, $t_{hold}$, $t_{co}$）以及**事件因果关系**（如“时钟沿采样发起读请求”）：
 1. **设置锚点 (Node)**：在起点的信号周期方格中打上一个字母代号（例如在 `clk` 的 T1 周期打 `a`），在终点周期打上另一个代号（例如在 `data` 的 T2 周期打 `b`）。
 2. **配置连线规则**：打开下方/右侧的 **时序连线标注 (Edge Editor)**：
@@ -195,20 +203,20 @@ WaveGen 严格遵循 WaveDrom 渲染标准，支持所有标准电平与硬件�
    - 文本内容：输入任意长度的文字，例如 `t_setup ≥ 3.2ns` 或 `数据锁存`。
    - 样式定制：支持虚线样式、箭头颜色（蓝/紫/红/灰等）、垂直高度微调偏置。
 
-### 方式二：阶段说明轨 (Phase Text Track)
+### 阶段说明轨 (Phase Text Track)
 适用于划分协议的全局状态机阶段（如 `IDLE ➔ ADDR ➔ DATA ➔ CRC ➔ ACK`）：
 1. 点击高级工具栏中的 **「添加阶段说明轨」**。
 2. 系统将在顶部或指定位置生成一条特殊的阶段总线，并将其波形标记为 `====`。
 3. 点击各阶段方格，填入阶段名称（如 `地址传输阶段`、`突发写入阶段`），整条波形上方会以清晰的状态条展示时序阶段划分。
 
-### 方式三：总线数据块文字 (Bus Data Tokens)
+### 总线数据块文字 (Bus Data Tokens)
 适用于标注数据总线、状态码、指令字的具体数值：
 1. 将某拍电平设为总线（`=` 或彩色总线 `2`~`9`）。
 2. 点击信号卡片上的 **「总线数据」** 按钮，会展开数据输入框。
 3. 输入数据数组（例如 `0x3F`, `CMD_WRITE`, `ID_OK`）。
 4. 文字会自动居中显示在波形对应总线数据块的中央。
 
-### 方式四：全局标题与底部图注 (Head / Foot Notes)
+### 全局标题与底部图注 (Head / Foot Notes)
 适用于在整张图表的顶部和底部补充技术文档信息：
 1. 点击波形预览栏的 **「标尺与标题配置」**。
 2. 在 **`head.text`** 中输入波形图主标题（例如 `SPI Mode 0 传输时序规范`）。
@@ -275,7 +283,7 @@ WaveGen 专为出版级硬件文档设计，支持分离的字体渲染配置：
 - **深色模式**：主体为藏蓝色风格，组件内按钮为蓝色或紫色。
 - **跟随系统**：跟随系统自适应浅色模式或深色模式，默认为深色模式。
 
-### WaveDrom波形图风格
+### 波形图风格
 点击顶部 **「经典象牙白」** 按钮，内置多种波形图风格：
 - **经典象牙白**：白色背景，黑色波形与标注，蓝色信号标识，浅灰色周期数。
 - **深空极客黑**：藏蓝色背景，白色波形与标注，天蓝色信号标识，白色周期数。
@@ -327,7 +335,7 @@ WaveGen 专为出版级硬件文档设计，支持分离的字体渲染配置：
 
 点击顶部**使用指南**，查看**时序符号速查**、**连线与文字标注**、**视图与高度调节**、**快捷键与效率技巧**。
 
-### 中/EN
+### 语言
 
 点击顶部**中/EN**，切换工具语言中文或者English。
 
